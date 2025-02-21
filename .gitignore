@@ -1,0 +1,5 @@
+wandb/
+.vscode/
+.env
+*.pyc
+dist/
