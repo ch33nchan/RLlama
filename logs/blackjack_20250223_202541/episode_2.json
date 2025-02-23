@@ -1,0 +1,9 @@
+{
+  "episode": 2,
+  "total_return": -1.0,
+  "message_ct": 1,
+  "actions": [
+    1
+  ],
+  "final_reward": -1.0
+}
