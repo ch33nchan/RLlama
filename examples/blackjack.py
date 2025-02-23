@@ -4,6 +4,12 @@ import json
 from datetime import datetime
 import warnings
 import torch
+import random
+import copy
+from collections import deque
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.distributions import Normal, Categorical
 
 from transformers import AutoTokenizer
 from peft import LoraConfig
@@ -13,18 +19,175 @@ import re
 import gymnasium as gym
 from llamagym import Agent
 
+import argparse
 
-import argparse  # Add at the top with other imports
+# Rest of the code remains the same...
 
 class BlackjackAgent(Agent):
     def __init__(self, model, tokenizer, device, generate_kwargs, ppo_kwargs, algorithm='ppo'):
         super().__init__(model, tokenizer, device, generate_kwargs, ppo_kwargs)
         self.algorithm = algorithm
-        if algorithm == 'grpo':
-            self.group_buffer = []
-            self.group_size = 8
-            self.current_group_episodes = []
-            self.current_episode_log_probs = []
+        self.setup_algorithm()
+
+    def get_state_embedding(self, observation):
+        # Convert observation to string format
+        obs_str = self.format_observation(observation)
+        
+        # Tokenize the observation and ensure it's on the correct device
+        inputs = self.tokenizer(obs_str, return_tensors="pt")
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        
+        # Get embeddings from the model
+        with torch.no_grad():
+            outputs = self.model.pretrained_model(**inputs)
+            # Use hidden states from the last layer
+            hidden_states = outputs.hidden_states[-1] if hasattr(outputs, 'hidden_states') else outputs.logits
+            # Take mean across sequence length
+            state_embedding = hidden_states.mean(dim=1)
+        
+        return state_embedding.to(self.device)
+
+    def setup_algorithm(self):
+        # Initialize common attributes
+        self.current_group_episodes = []
+        self.group_size = 5  # Default group size
+        
+        if self.algorithm == 'dqn':
+            self.memory = deque(maxlen=10000)
+            self.epsilon = 1.0
+            self.epsilon_min = 0.01
+            self.epsilon_decay = 0.995
+            self.target_model = copy.deepcopy(self.model)
+            self.target_update_freq = 100
+            self.step_counter = 0
+            self.gamma = 0.99  # Add gamma for DQN
+            
+        elif self.algorithm == 'a2c':
+            self.value_net = nn.Linear(768, 1).to(self.device)
+            self.value_optimizer = torch.optim.Adam(self.value_net.parameters())
+            self.gamma = 0.99
+            
+        elif self.algorithm == 'reinforce':
+            self.saved_log_probs = []
+            self.gamma = 0.99
+            
+        elif self.algorithm == 'sac':
+            self.alpha = 0.2
+            self.target_entropy = -1
+            self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+            self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=3e-4)
+            self.q1_net = nn.Linear(768, 1).to(self.device)
+            self.q2_net = nn.Linear(768, 1).to(self.device)
+            self.q_optimizer = torch.optim.Adam(list(self.q1_net.parameters()) + 
+                                              list(self.q2_net.parameters()))
+
+    def act(self, observation):
+        state_embedding = self.get_state_embedding(observation)
+        
+        if self.algorithm == 'dqn':
+            if random.random() < self.epsilon:
+                return random.randint(0, 1)
+            with torch.no_grad():
+                q_values = self.model(state_embedding)
+                return torch.argmax(q_values).item()
+                
+        elif self.algorithm == 'a2c':
+            action_probs = F.softmax(self.model(state_embedding), dim=-1)
+            value = self.value_net(state_embedding)
+            action = torch.multinomial(action_probs, 1).item()
+            self.saved_values.append(value)
+            return action
+            
+        elif self.algorithm == 'reinforce':
+            action_probs = F.softmax(self.model(state_embedding), dim=-1)
+            m = Categorical(action_probs)
+            action = m.sample()
+            self.saved_log_probs.append(m.log_prob(action))
+            return action.item()
+            
+        elif self.algorithm == 'sac':
+            mean, log_std = self.model(state_embedding).chunk(2, dim=-1)
+            std = log_std.exp()
+            normal = Normal(mean, std)
+            x_t = normal.rsample()
+            action = torch.tanh(x_t)
+            log_prob = normal.log_prob(x_t)
+            log_prob -= torch.log(1 - action.pow(2) + 1e-6)
+            return action.item()
+
+    def update(self, batch):
+        if self.algorithm == 'dqn':
+            states, actions, rewards, next_states, dones = batch
+            current_q = self.model(states).gather(1, actions)
+            next_q = self.target_model(next_states).max(1)[0].detach()
+            target_q = rewards + self.gamma * next_q * (1 - dones)
+            loss = F.mse_loss(current_q, target_q.unsqueeze(1))
+            
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+            
+            self.step_counter += 1
+            if self.step_counter % self.target_update_freq == 0:
+                self.target_model.load_state_dict(self.model.state_dict())
+                
+        elif self.algorithm == 'a2c':
+            states, actions, rewards, values = batch
+            returns = self.compute_returns(rewards)
+            advantages = returns - values
+            
+            action_probs = F.softmax(self.model(states), dim=-1)
+            log_probs = torch.log(action_probs.gather(1, actions))
+            
+            actor_loss = -(log_probs * advantages.detach()).mean()
+            critic_loss = F.mse_loss(values, returns)
+            
+            loss = actor_loss + 0.5 * critic_loss
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+            
+        elif self.algorithm == 'reinforce':
+            returns = self.compute_returns(self.current_episode_rewards)
+            policy_loss = []
+            for log_prob, R in zip(self.saved_log_probs, returns):
+                policy_loss.append(-log_prob * R)
+            policy_loss = torch.cat(policy_loss).sum()
+            
+            self.optimizer.zero_grad()
+            policy_loss.backward()
+            self.optimizer.step()
+            
+        elif self.algorithm == 'sac':
+            states, actions, rewards, next_states, dones = batch
+            
+            # Update Q-functions
+            current_q1 = self.q1_net(states)
+            current_q2 = self.q2_net(states)
+            next_value = self.compute_next_value(next_states)
+            target_q = rewards + self.gamma * next_value * (1 - dones)
+            
+            q_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(current_q2, target_q)
+            
+            # Update policy
+            new_actions, log_probs = self.compute_actions_and_probs(states)
+            min_q = torch.min(self.q1_net(states), self.q2_net(states))
+            policy_loss = (self.alpha * log_probs - min_q).mean()
+            
+            # Update alpha
+            alpha_loss = -(self.log_alpha * (log_probs + self.target_entropy).detach()).mean()
+            
+            self.q_optimizer.zero_grad()
+            q_loss.backward()
+            self.q_optimizer.step()
+            
+            self.optimizer.zero_grad()
+            policy_loss.backward()
+            self.optimizer.step()
+            
+            self.alpha_optimizer.zero_grad()
+            alpha_loss.backward()
+            self.alpha_optimizer.step()
 
     def get_system_prompt(self) -> str:
         return """You are an expert blackjack player. Follow these strict rules:
@@ -54,43 +217,6 @@ Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
                 return 1
 
         return 0
-
-    def act(self, observation):
-        prompt = self.format_observation(observation)
-        print(f"\nCurrent state: {prompt}")  # Debug output
-        inputs = self.tokenizer(prompt, return_tensors="pt")
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
-        
-        generate_kwargs = {
-            "max_new_tokens": 24,
-            "num_return_sequences": 1,
-            "do_sample": True,
-            "top_k": 20,
-            "top_p": 0.9,
-            "temperature": 0.7,
-            "input_ids": inputs["input_ids"],
-            "attention_mask": inputs.get("attention_mask", None),
-            "pad_token_id": self.tokenizer.pad_token_id,
-            "return_dict_in_generate": True,
-            "output_scores": True
-        }
-        
-        self.model = self.model.to(self.device)
-        outputs = self.model.generate(**generate_kwargs)
-        response = self.tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
-        
-        # Store log probabilities for GRPO
-        if self.algorithm == 'grpo':
-            logits = outputs.scores[0]
-            probs = torch.nn.functional.softmax(logits, dim=-1)
-            action_probs = probs[0][outputs.sequences[0][-1]]
-            self.current_episode_log_probs.append(torch.log(action_probs).item())
-        
-        print(f"Model response: {response}")  # Debug output
-        action = self.extract_action(response)
-        print(f"Action taken: {'stay' if action == 0 else 'hit'}")  # Debug output
-        
-        return action
 
     def terminate_episode(self):
         if self.algorithm == 'ppo':
@@ -125,13 +251,22 @@ Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
         
         # Flatten episodes and expand rewards
         for episode, reward in zip(self.current_group_episodes, relative_rewards):
-            all_messages.extend(episode['messages'])
-            all_log_probs.extend(episode['log_probs'])
-            flattened_rewards.extend([reward] * len(episode['messages']))
+            if len(episode['log_probs']) > 0:  # Only add if there are log probs
+                all_messages.extend(episode['messages'])
+                all_log_probs.extend(episode['log_probs'])
+                flattened_rewards.extend([reward] * len(episode['log_probs']))
+        
+        # Check if we have any data to process
+        if not all_log_probs:
+            return {
+                'policy_loss': 0.0,
+                'mean_reward': sum(relative_rewards) / len(relative_rewards) if relative_rewards else 0.0,
+                'std_reward': 0.0
+            }
         
         # Convert to tensors with gradients enabled
         rewards_tensor = torch.tensor(flattened_rewards, device=self.device, requires_grad=False)
-        log_probs_tensor = torch.tensor(all_log_probs, device=self.device, requires_grad=True)
+        log_probs_tensor = torch.stack(all_log_probs)  # Use stack instead of tensor
         
         # Compute policy loss with detached rewards
         policy_loss = -(log_probs_tensor * rewards_tensor.detach()).mean()
@@ -142,7 +277,7 @@ Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
         
         self.optimizer.zero_grad()
         policy_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)  # Add gradient clipping
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
         self.optimizer.step()
         
         return {
@@ -151,10 +286,33 @@ Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
             'std_reward': rewards_tensor.std().item()
         }
 
+# Add this after the imports
+def check_mps_availability():
+    print("\nChecking MPS availability:")
+    print(f"MPS available: {torch.backends.mps.is_available()}")
+    print(f"MPS built: {torch.backends.mps.is_built()}")
+    try:
+        # Try to create MPS device
+        mps_device = torch.device("mps")
+        x = torch.ones(1, device=mps_device)
+        print("MPS device test successful")
+        return True
+    except Exception as e:
+        print(f"MPS device test failed: {e}")
+        return False
+
+# Modify the device setup (replace the existing device setup)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--algorithm', type=str, choices=['ppo', 'grpo'], default='ppo',
-                      help='RL algorithm to use (ppo or grpo)')
+    parser.add_argument('--algorithm', type=str, choices=['ppo', 'dqn', 'a2c', 'reinforce', 'sac', 'grpo'],
+                       default='ppo',
+                       help='RL algorithm to use')
+    parser.add_argument('--episodes', type=int, default=20,
+                       help='Number of episodes to train')
+    parser.add_argument('--batch_size', type=int, default=32,
+                       help='Batch size for training')
+    parser.add_argument('--lr', type=float, default=1e-5,
+                       help='Learning rate')
     args = parser.parse_args()
 
     # Suppress warnings
@@ -166,18 +324,18 @@ if __name__ == "__main__":
     os.makedirs(log_dir, exist_ok=True)
     
     hyperparams = {
-        "model_name": "distilgpt2",  # Changed to smaller model
+        "model_name": "facebook/opt-125m",  # Much smaller model
         "env": "Blackjack-v1",
-        "lora/r": 4,                 # Reduced LoRA rank
-        "lora/lora_alpha": 8,        # Reduced alpha
+        "lora/r": 2,                 # Reduced LoRA rank further
+        "lora/lora_alpha": 4,        # Reduced alpha
         "lora/lora_dropout": 0.05,
         "lora/bias": "none",
         "lora/task_type": "CAUSAL_LM",
         "load_in_8bit": False,
-        "batch_size": 1,             # Reduced batch size
+        "batch_size": 1,             
         "seed": 42069,
-        "episodes": 20,              # Reduced episodes
-        "generate/max_new_tokens": 24,
+        "episodes": 10,              # Reduced episodes further
+        "generate/max_new_tokens": 16,  # Reduced tokens
         "generate/do_sample": True,
         "generate/top_p": 0.9,
         "generate/top_k": 20,
@@ -202,13 +360,32 @@ if __name__ == "__main__":
         }
     )
     
+    # Replace the device setup section in __main__
+    # Device setup
+    if torch.backends.mps.is_available() and torch.backends.mps.is_built():
+        device = torch.device("mps")
+        print("Using MPS device")
+    else:
+        device = torch.device("cpu")
+        print("Using CPU device")
+    
+    # Set default device
+    torch.set_default_device(device)
+    
+    # Create model with explicit device placement
     model = AutoModelForCausalLMWithValueHead.from_pretrained(
         pretrained_model_name_or_path=hyperparams["model_name"],
         peft_config=lora_config,
         load_in_8bit=hyperparams["load_in_8bit"],
         token=HF_TOKEN,
-        device_map=None,  # Disable auto device mapping
-    ).cpu()  # Explicitly move to CPU
+        device_map={"": device},  # Explicit device mapping
+        output_hidden_states=True  # Add this line
+    )
+    
+    # Ensure model and its components are on the correct device
+    model = model.to(device)
+    for param in model.parameters():
+        param.data = param.data.to(device)
     
     tokenizer = AutoTokenizer.from_pretrained(hyperparams["model_name"], token=HF_TOKEN)
     tokenizer.add_special_tokens({"pad_token": "<pad>"})
@@ -261,10 +438,57 @@ if __name__ == "__main__":
             episode_stats.update(train_stats)
         
         # Log to file
+        # Save episode stats
         with open(f"{log_dir}/episode_{episode}.json", "w") as f:
             json.dump(episode_stats, f, indent=2)
 
+        # Save model checkpoint every 5 episodes
+        if (episode + 1) % 5 == 0:
+            checkpoint_path = f"{log_dir}/checkpoint_{episode+1}"
+            os.makedirs(checkpoint_path, exist_ok=True)
+            model.save_pretrained(checkpoint_path)
+            tokenizer.save_pretrained(checkpoint_path)
+
+    # Final evaluation
+    print("\nRunning final evaluation...")
+    eval_episodes = 10
+    eval_rewards = []
+    
+    for eval_ep in range(eval_episodes):
+        observation, info = env.reset()
+        done = False
+        ep_reward = 0
+        
+        while not done:
+            with torch.no_grad():
+                action = agent.act(observation)
+            observation, reward, terminated, truncated, info = env.step(action)
+            ep_reward += reward
+            done = terminated or truncated
+            
+        eval_rewards.append(ep_reward)
+
+    # Save final statistics
+    final_stats = {
+        "training_episodes": hyperparams["episodes"],
+        "average_training_reward": sum(agent.current_episode_rewards) / hyperparams["episodes"],
+        "eval_episodes": eval_episodes,
+        "average_eval_reward": sum(eval_rewards) / eval_episodes,
+        "algorithm": args.algorithm,
+        "final_epsilon": agent.epsilon if hasattr(agent, "epsilon") else None,
+    }
+
+    with open(f"{log_dir}/final_stats.json", "w") as f:
+        json.dump(final_stats, f, indent=2)
+
     print("\nFinal Statistics:")
-    print(f"Average reward per episode: {sum(agent.current_episode_rewards) / hyperparams['episodes']:.2f}")
+    print(f"Average training reward: {final_stats['average_training_reward']:.2f}")
+    print(f"Average evaluation reward: {final_stats['average_eval_reward']:.2f}")
+
+    # Save final model
+    final_model_path = f"{log_dir}/final_model"
+    os.makedirs(final_model_path, exist_ok=True)
+    model.save_pretrained(final_model_path)
+    tokenizer.save_pretrained(final_model_path)
 
     env.close()
