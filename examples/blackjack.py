@@ -33,9 +33,9 @@ class BlackjackAgent(Agent):
         # Convert observation to string format
         obs_str = self.format_observation(observation)
         
-        # Tokenize the observation and ensure it's on the correct device
+        # Tokenize the observation and ensure it's on the correct device with correct dtype
         inputs = self.tokenizer(obs_str, return_tensors="pt")
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        inputs = {k: v.to(self.device).long() for k, v in inputs.items()}  # Ensure Long dtype
         
         # Get embeddings from the model
         with torch.no_grad():
@@ -52,7 +52,32 @@ class BlackjackAgent(Agent):
         self.current_group_episodes = []
         self.group_size = 5  # Default group size
         
-        if self.algorithm == 'dqn':
+        if self.algorithm == 'ppo':
+            # PPO specific parameters
+            self.clip_param = 0.2
+            self.ppo_epochs = 4
+            self.gamma = 0.99
+            self.gae_lambda = 0.95
+            self.value_loss_coef = 0.5
+            self.entropy_coef = 0.01
+            self.max_grad_norm = 0.5
+            
+            # Initialize value head
+            self.value_net = nn.Linear(768, 1).to(self.device)
+            self.optimizer = torch.optim.Adam([
+                {'params': self.model.parameters()},
+                {'params': self.value_net.parameters()}
+            ], lr=3e-4)
+            
+            # Storage for PPO
+            self.saved_log_probs = []
+            self.saved_values = []
+            self.saved_states = []
+            self.saved_actions = []
+            self.saved_rewards = []
+            self.saved_dones = []
+            
+        elif self.algorithm == 'dqn':
             self.memory = deque(maxlen=10000)
             self.epsilon = 1.0
             self.epsilon_min = 0.01
@@ -84,7 +109,31 @@ class BlackjackAgent(Agent):
     def act(self, observation):
         state_embedding = self.get_state_embedding(observation)
         
-        if self.algorithm == 'dqn':
+        if self.algorithm == 'ppo':
+            # Store state for later updates
+            self.saved_states.append(state_embedding)
+            
+            # Get action probabilities and value
+            with torch.no_grad():
+                # Convert state embedding to float and ensure correct shape
+                state_input = state_embedding.float().unsqueeze(0)
+                logits = self.model.v_head(state_input)  # Use v_head for action logits
+                action_probs = F.softmax(logits, dim=-1)
+                value = self.value_net(state_input)
+            
+            # Sample action using categorical distribution
+            dist = Categorical(action_probs)
+            action = dist.sample()
+            
+            # Store action info for later updates
+            self.saved_log_probs.append(dist.log_prob(action))
+            self.saved_values.append(value)
+            self.saved_actions.append(action)
+            self.saved_dones.append(False)
+            
+            return action.item()
+            
+        elif self.algorithm == 'dqn':
             if random.random() < self.epsilon:
                 return random.randint(0, 1)
             with torch.no_grad():
@@ -116,7 +165,57 @@ class BlackjackAgent(Agent):
             return action.item()
 
     def update(self, batch):
-        if self.algorithm == 'dqn':
+        if self.algorithm == 'ppo':
+            states = torch.stack(self.saved_states)
+            actions = torch.tensor(self.saved_actions, device=self.device)
+            old_log_probs = torch.stack(self.saved_log_probs)
+            old_values = torch.stack(self.saved_values)
+            rewards = torch.tensor(self.saved_rewards, device=self.device)
+            dones = torch.tensor(self.saved_dones, device=self.device)
+            
+            # Compute returns and advantages
+            returns = self.compute_returns(rewards, dones)
+            advantages = returns - old_values.detach()
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+            
+            for _ in range(self.ppo_epochs):
+                # Get current policy and value predictions
+                action_probs = F.softmax(self.model(states), dim=-1)
+                current_values = self.value_net(states).squeeze()
+                
+                # Compute ratio and clipped ratio
+                ratio = torch.exp(torch.log(action_probs.gather(1, actions.unsqueeze(1))) - old_log_probs)
+                clipped_ratio = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param)
+                
+                # Compute losses
+                policy_loss = -torch.min(ratio * advantages, clipped_ratio * advantages).mean()
+                value_loss = F.mse_loss(current_values, returns)
+                entropy_loss = -torch.mean(torch.sum(action_probs * torch.log(action_probs + 1e-10), dim=1))
+                
+                # Combined loss
+                loss = policy_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy_loss
+                
+                # Update model
+                self.optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
+                self.optimizer.step()
+            
+            # Clear storage
+            self.saved_log_probs = []
+            self.saved_values = []
+            self.saved_states = []
+            self.saved_actions = []
+            self.saved_rewards = []
+            self.saved_dones = []
+            
+            return {
+                'policy_loss': policy_loss.item(),
+                'value_loss': value_loss.item(),
+                'entropy': entropy_loss.item()
+            }
+            
+        elif self.algorithm == 'dqn':
             states, actions, rewards, next_states, dones = batch
             current_q = self.model(states).gather(1, actions)
             next_q = self.target_model(next_states).max(1)[0].detach()
@@ -189,6 +288,25 @@ class BlackjackAgent(Agent):
             alpha_loss.backward()
             self.alpha_optimizer.step()
 
+    def compute_returns(self, rewards, dones):
+        returns = torch.zeros_like(rewards)
+        advantages = torch.zeros_like(rewards)
+        last_return = 0
+        last_advantage = 0
+        
+        for t in reversed(range(len(rewards))):
+            if t == len(rewards) - 1:
+                next_value = 0
+            else:
+                next_value = self.saved_values[t + 1].item()
+                
+            returns[t] = rewards[t] + self.gamma * next_value * (1 - dones[t])
+            td_error = rewards[t] + self.gamma * next_value * (1 - dones[t]) - self.saved_values[t].item()
+            advantages[t] = td_error + self.gamma * self.gae_lambda * (1 - dones[t]) * last_advantage
+            last_advantage = advantages[t]
+            
+        return returns
+
     def get_system_prompt(self) -> str:
         return """You are an expert blackjack player. Follow these strict rules:
 1. ALWAYS hit (Action: 1) if your total is 11 or below - no exceptions!
@@ -243,6 +361,7 @@ Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
                 self.current_group_episodes = []
                 return stats
             return None
+    
 
     def _update_policy_grpo(self, relative_rewards):
         all_messages = []
