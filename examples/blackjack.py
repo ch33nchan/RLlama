@@ -88,49 +88,68 @@ class BlackjackAgent(Agent):
             self.gamma = 0.99  # Add gamma for DQN
             
         elif self.algorithm == 'a2c':
+            # A2C specific parameters
+            self.gamma = 0.99
+            self.value_loss_coef = 0.5
+            self.entropy_coef = 0.01
+            self.max_grad_norm = 0.5
+            
+            # Initialize networks
             self.value_net = nn.Linear(768, 1).to(self.device)
-            self.value_optimizer = torch.optim.Adam(self.value_net.parameters())
-            self.gamma = 0.99
+            self.policy_net = nn.Linear(768, 2).to(self.device)  # 2 actions for Blackjack
             
-        elif self.algorithm == 'reinforce':
+            # Initialize optimizer
+            self.optimizer = torch.optim.Adam([
+                {'params': self.policy_net.parameters()},
+                {'params': self.value_net.parameters()}
+            ], lr=3e-4)
+            
+            # Storage
+            self.saved_states = []
+            self.saved_actions = []
             self.saved_log_probs = []
-            self.gamma = 0.99
-            
-        elif self.algorithm == 'sac':
-            self.alpha = 0.2
-            self.target_entropy = -1
-            self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-            self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=3e-4)
-            self.q1_net = nn.Linear(768, 1).to(self.device)
-            self.q2_net = nn.Linear(768, 1).to(self.device)
-            self.q_optimizer = torch.optim.Adam(list(self.q1_net.parameters()) + 
-                                              list(self.q2_net.parameters()))
+            self.saved_values = []
+            self.saved_rewards = []
+            self.saved_dones = []
 
     def act(self, observation):
         state_embedding = self.get_state_embedding(observation)
         
-        if self.algorithm == 'ppo':
-            # Store state for later updates
-            self.saved_states.append(state_embedding)
-            
-            # Get action probabilities and value
+        if self.algorithm == 'a2c':
+            # A2C implementation
             with torch.no_grad():
-                # Convert state embedding to float and ensure correct shape
-                state_input = state_embedding.float().unsqueeze(0)
-                logits = self.model.v_head(state_input)  # Use v_head for action logits
+                policy_logits = self.policy_net(state_embedding)
+                action_probs = F.softmax(policy_logits, dim=-1)
+                value = self.value_net(state_embedding)
+                
+                dist = Categorical(action_probs)
+                action = dist.sample()
+                
+                self.saved_states.append(state_embedding)
+                self.saved_log_probs.append(dist.log_prob(action))
+                self.saved_values.append(value)
+                self.saved_actions.append(action)
+                self.saved_dones.append(False)
+                
+            return action.item()
+            
+        elif self.algorithm == 'ppo':
+            # PPO implementation
+            with torch.no_grad():
+                state_input = state_embedding.float()
+                logits = self.model.v_head(state_input)
                 action_probs = F.softmax(logits, dim=-1)
                 value = self.value_net(state_input)
-            
-            # Sample action using categorical distribution
-            dist = Categorical(action_probs)
-            action = dist.sample()
-            
-            # Store action info for later updates
-            self.saved_log_probs.append(dist.log_prob(action))
-            self.saved_values.append(value)
-            self.saved_actions.append(action)
-            self.saved_dones.append(False)
-            
+                
+                dist = Categorical(action_probs)
+                action = dist.sample()
+                
+                self.saved_states.append(state_embedding)
+                self.saved_log_probs.append(dist.log_prob(action))
+                self.saved_values.append(value)
+                self.saved_actions.append(action)
+                self.saved_dones.append(False)
+                
             return action.item()
             
         elif self.algorithm == 'dqn':
@@ -140,13 +159,6 @@ class BlackjackAgent(Agent):
                 q_values = self.model(state_embedding)
                 return torch.argmax(q_values).item()
                 
-        elif self.algorithm == 'a2c':
-            action_probs = F.softmax(self.model(state_embedding), dim=-1)
-            value = self.value_net(state_embedding)
-            action = torch.multinomial(action_probs, 1).item()
-            self.saved_values.append(value)
-            return action
-            
         elif self.algorithm == 'reinforce':
             action_probs = F.softmax(self.model(state_embedding), dim=-1)
             m = Categorical(action_probs)

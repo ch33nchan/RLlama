@@ -1,0 +1,8 @@
+{
+  "training_episodes": 10,
+  "average_training_reward": -0.8,
+  "eval_episodes": 10,
+  "average_eval_reward": -0.3,
+  "algorithm": "a2c",
+  "final_epsilon": null
+}
