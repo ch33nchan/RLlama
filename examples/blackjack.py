@@ -668,13 +668,19 @@ Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
                 episode_returns = [sum(ep['rewards']) for ep in self.current_group_episodes]
                 mean_return = sum(episode_returns) / len(episode_returns)
                 std_return = torch.std(torch.tensor(episode_returns, device=self.device)).item() if len(episode_returns) > 1 else 0
-                relative_rewards = [ret - mean_return for ret in episode_returns]
+                
+                # Normalize rewards
+                if std_return > 0:
+                    relative_rewards = [(ret - mean_return) / std_return for ret in episode_returns]
+                else:
+                    relative_rewards = [ret - mean_return for ret in episode_returns]
                 
                 # Calculate policy loss
-                policy_loss = torch.tensor(0.0, device=self.device, requires_grad=True)
+                policy_loss = torch.tensor(0.0, device=self.device)
                 for episode, reward in zip(self.current_group_episodes, relative_rewards):
-                    episode_loss = torch.stack([log_prob * (-reward) for log_prob in episode['log_probs']]).sum()
-                    policy_loss = policy_loss + episode_loss
+                    if len(episode['log_probs']) > 0:
+                        episode_loss = torch.stack([log_prob * (-reward) for log_prob in episode['log_probs']]).sum()
+                        policy_loss = policy_loss + episode_loss
                 
                 # Update model if we have a non-zero loss
                 if torch.abs(policy_loss) > 1e-8:
