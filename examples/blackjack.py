@@ -29,7 +29,7 @@ class BlackjackAgent(Agent):
         self.algorithm = algorithm
         self.setup_algorithm()
 
-    def get_state_embedding(self, observation):
+    def get_state_embedding(self, observation):  # Fixed indentation
         # Convert observation to string format
         obs_str = self.format_observation(observation)
         
@@ -47,7 +47,38 @@ class BlackjackAgent(Agent):
         
         return state_embedding.to(self.device)
 
+    def get_system_prompt(self) -> str:
+        return """You are an expert blackjack player. Follow these strict rules:
+1. ALWAYS hit (Action: 1) if your total is 11 or below - no exceptions!
+2. With 12-16:
+   - Hit (Action: 1) if dealer shows 7 or higher
+   - Stay (Action: 0) if dealer shows 6 or lower
+3. ALWAYS stay (Action: 0) if your total is 17 or higher without an ace
+4. With a usable ace:
+   - Hit (Action: 1) if your total is 17 or below
+   - Stay (Action: 0) if your total is 18 or above
+Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
+
+    def format_observation(self, observation: gym.core.ObsType) -> str:
+        return f"Current hand total: {observation[0]}\nDealer's card: {observation[1]}\nUsable ace: {'yes' if bool(observation[2]) else 'no'}\nWhat is your action? Respond ONLY with Action: 0 or Action: 1."
+
+    def extract_action(self, response: str) -> gym.core.ActType:
+        match = re.compile(r"Action: (\d)").search(response)
+        if match:
+            return int(match.group(1))
+        
+        # Fallback parsing
+        digits = [char for char in response if char.isdigit()]
+        if len(digits) == 0 or digits[-1] not in ("0", "1"):
+            if "stick" in response.lower():
+                return 0
+            elif "hit" in response.lower():
+                return 1
+        
+        return 0
+
     def setup_algorithm(self):
+        # ... rest of the code ...
         # Initialize common attributes
         self.current_group_episodes = []
         self.group_size = 5  # Default group size
@@ -188,65 +219,26 @@ class BlackjackAgent(Agent):
     def act(self, observation):
         state_embedding = self.get_state_embedding(observation)
         
-        if self.algorithm == 'sac':
-            with torch.no_grad():
-                # Convert state embedding to float and ensure correct shape
-                state_input = state_embedding.float()
-                
-                # Get action logits from the model's value head
-                logits = self.model.v_head(state_input)
-                
-                # For discrete action space (Blackjack), use softmax
-                action_probs = F.softmax(logits, dim=-1)
-                
-                # Sample action using Gumbel-Softmax for discrete actions
-                temperature = 1.0
-                gumbel_dist = F.gumbel_softmax(logits, tau=temperature, hard=True)
-                action = torch.argmax(gumbel_dist)
-                
-                # Store necessary information for training
-                self.saved_states.append(state_input)
-                self.saved_actions.append(action)
-                self.saved_log_probs.append(torch.log(action_probs[0, action] + 1e-10))
+        if self.algorithm == 'grpo':
+            # Convert state embedding to float and ensure correct shape
+            state_input = state_embedding.float()
+            logits = self.model.v_head(state_input)
+            action_probs = F.softmax(logits, dim=-1)
             
-            return action.item()
+            # Sample action using categorical distribution
+            dist = Categorical(action_probs)
+            action = dist.sample()
             
-        elif self.algorithm == 'reinforce':
-            with torch.no_grad():
-                # Convert state embedding to float and ensure correct shape
-                state_input = state_embedding.float()
-                logits = self.model.v_head(state_input)
-                action_probs = F.softmax(logits, dim=-1)
-                
-                # Sample action using categorical distribution
-                dist = Categorical(action_probs)
-                action = dist.sample()
-                
-                # Store log probability for training
-                self.saved_log_probs.append(dist.log_prob(action))
+            # Store log probability with gradient
+            log_prob = dist.log_prob(action)
+            self.current_episode_log_probs.append(log_prob)
             
-            return action.item()
+            # Store the action for later use
+            action = action.clamp(0, 1)
             
-        elif self.algorithm == 'a2c':
-            # A2C implementation
-            with torch.no_grad():
-                policy_logits = self.policy_net(state_embedding)
-                action_probs = F.softmax(policy_logits, dim=-1)
-                value = self.value_net(state_embedding)
-                
-                dist = Categorical(action_probs)
-                action = dist.sample()
-                
-                self.saved_states.append(state_embedding)
-                self.saved_log_probs.append(dist.log_prob(action))
-                self.saved_values.append(value)
-                self.saved_actions.append(action)
-                self.saved_dones.append(False)
-                
             return action.item()
             
         elif self.algorithm == 'ppo':
-            # PPO implementation
             with torch.no_grad():
                 state_input = state_embedding.float()
                 logits = self.model.v_head(state_input)
@@ -262,211 +254,83 @@ class BlackjackAgent(Agent):
                 self.saved_actions.append(action)
                 self.saved_dones.append(False)
                 
+                action = action.clamp(0, 1)
+            
             return action.item()
             
         elif self.algorithm == 'dqn':
-            if random.random() < self.epsilon:
-                return random.randint(0, 1)
             with torch.no_grad():
-                q_values = self.model(state_embedding)
-                return torch.argmax(q_values).item()
+                state_input = state_embedding.float()
                 
-        elif self.algorithm == 'reinforce':
-            action_probs = F.softmax(self.model(state_embedding), dim=-1)
-            m = Categorical(action_probs)
-            action = m.sample()
-            self.saved_log_probs.append(m.log_prob(action))
-            return action.item()
-            
-        elif self.algorithm == 'sac':
-            mean, log_std = self.model(state_embedding).chunk(2, dim=-1)
-            std = log_std.exp()
-            normal = Normal(mean, std)
-            x_t = normal.rsample()
-            action = torch.tanh(x_t)
-            log_prob = normal.log_prob(x_t)
-            log_prob -= torch.log(1 - action.pow(2) + 1e-6)
-            return action.item()
-
-    def update(self, batch):
-        if self.algorithm == 'ppo':
-            states = torch.stack(self.saved_states)
-            actions = torch.tensor(self.saved_actions, device=self.device)
-            old_log_probs = torch.stack(self.saved_log_probs)
-            old_values = torch.stack(self.saved_values)
-            rewards = torch.tensor(self.saved_rewards, device=self.device)
-            dones = torch.tensor(self.saved_dones, device=self.device)
-            
-            # Compute returns and advantages
-            returns = self.compute_returns(rewards, dones)
-            advantages = returns - old_values.detach()
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-            
-            for _ in range(self.ppo_epochs):
-                # Get current policy and value predictions
-                action_probs = F.softmax(self.model(states), dim=-1)
-                current_values = self.value_net(states).squeeze()
+                # Epsilon-greedy action selection
+                if random.random() < self.epsilon:
+                    action = random.randint(0, 1)
+                else:
+                    q_values = self.model.v_head(state_input)
+                    action = torch.argmax(q_values).item()
                 
-                # Compute ratio and clipped ratio
-                ratio = torch.exp(torch.log(action_probs.gather(1, actions.unsqueeze(1))) - old_log_probs)
-                clipped_ratio = torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param)
+                # Decay epsilon
+                self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
                 
-                # Compute losses
-                policy_loss = -torch.min(ratio * advantages, clipped_ratio * advantages).mean()
-                value_loss = F.mse_loss(current_values, returns)
-                entropy_loss = -torch.mean(torch.sum(action_probs * torch.log(action_probs + 1e-10), dim=1))
-                
-                # Combined loss
-                loss = policy_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy_loss
-                
-                # Update model
-                self.optimizer.zero_grad()
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
-                self.optimizer.step()
+            return action
             
-            # Clear storage
-            self.saved_log_probs = []
-            self.saved_values = []
-            self.saved_states = []
-            self.saved_actions = []
-            self.saved_rewards = []
-            self.saved_dones = []
-            
-            return {
-                'policy_loss': policy_loss.item(),
-                'value_loss': value_loss.item(),
-                'entropy': entropy_loss.item()
-            }
-            
-        elif self.algorithm == 'dqn':
-            states, actions, rewards, next_states, dones = batch
-            current_q = self.model(states).gather(1, actions)
-            next_q = self.target_model(next_states).max(1)[0].detach()
-            target_q = rewards + self.gamma * next_q * (1 - dones)
-            loss = F.mse_loss(current_q, target_q.unsqueeze(1))
-            
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-            
-            self.step_counter += 1
-            if self.step_counter % self.target_update_freq == 0:
-                self.target_model.load_state_dict(self.model.state_dict())
-                
         elif self.algorithm == 'a2c':
-            states, actions, rewards, values = batch
-            returns = self.compute_returns(rewards)
-            advantages = returns - values
+            with torch.no_grad():
+                state_input = state_embedding.float()
+                policy_logits = self.policy_net(state_input)
+                value = self.value_net(state_input)
+                
+                action_probs = F.softmax(policy_logits, dim=-1)
+                dist = Categorical(action_probs)
+                action = dist.sample()
+                
+                self.saved_states.append(state_embedding)
+                self.saved_log_probs.append(dist.log_prob(action))
+                self.saved_values.append(value)
+                self.saved_actions.append(action)
+                self.saved_dones.append(False)
+                
+                action = action.clamp(0, 1)
             
-            action_probs = F.softmax(self.model(states), dim=-1)
-            log_probs = torch.log(action_probs.gather(1, actions))
-            
-            actor_loss = -(log_probs * advantages.detach()).mean()
-            critic_loss = F.mse_loss(values, returns)
-            
-            loss = actor_loss + 0.5 * critic_loss
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            return action.item()
             
         elif self.algorithm == 'reinforce':
-            returns = self.compute_returns(self.current_episode_rewards)
-            policy_loss = []
-            for log_prob, R in zip(self.saved_log_probs, returns):
-                policy_loss.append(-log_prob * R)
-            policy_loss = torch.cat(policy_loss).sum()
+            with torch.no_grad():
+                state_input = state_embedding.float()
+                logits = self.model.v_head(state_input)
+                action_probs = F.softmax(logits, dim=-1)
+                
+                dist = Categorical(action_probs)
+                action = dist.sample()
+                
+                self.saved_log_probs.append(dist.log_prob(action))
+                action = action.clamp(0, 1)
             
-            self.optimizer.zero_grad()
-            policy_loss.backward()
-            self.optimizer.step()
+            return action.item()
             
         elif self.algorithm == 'sac':
-            states, actions, rewards, next_states, dones = batch
-            
-            # Update Q-functions
-            current_q1 = self.q1_net(states)
-            current_q2 = self.q2_net(states)
-            next_value = self.compute_next_value(next_states)
-            target_q = rewards + self.gamma * next_value * (1 - dones)
-            
-            q_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(current_q2, target_q)
-            
-            # Update policy
-            new_actions, log_probs = self.compute_actions_and_probs(states)
-            min_q = torch.min(self.q1_net(states), self.q2_net(states))
-            policy_loss = (self.alpha * log_probs - min_q).mean()
-            
-            # Update alpha
-            alpha_loss = -(self.log_alpha * (log_probs + self.target_entropy).detach()).mean()
-            
-            self.q_optimizer.zero_grad()
-            q_loss.backward()
-            self.q_optimizer.step()
-            
-            self.optimizer.zero_grad()
-            policy_loss.backward()
-            self.optimizer.step()
-            
-            self.alpha_optimizer.zero_grad()
-            alpha_loss.backward()
-            self.alpha_optimizer.step()
-
-    def compute_returns(self, rewards, dones):
-        returns = torch.zeros_like(rewards)
-        advantages = torch.zeros_like(rewards)
-        last_return = 0
-        last_advantage = 0
-        
-        for t in reversed(range(len(rewards))):
-            if t == len(rewards) - 1:
-                next_value = 0
-            else:
-                next_value = self.saved_values[t + 1].item()
+            with torch.no_grad():
+                state_input = state_embedding.float()
+                logits = self.model.v_head(state_input)
+                action_probs = F.softmax(logits, dim=-1)
                 
-            returns[t] = rewards[t] + self.gamma * next_value * (1 - dones[t])
-            td_error = rewards[t] + self.gamma * next_value * (1 - dones[t]) - self.saved_values[t].item()
-            advantages[t] = td_error + self.gamma * self.gae_lambda * (1 - dones[t]) * last_advantage
-            last_advantage = advantages[t]
+                dist = Categorical(action_probs)
+                action = dist.sample()
+                log_prob = dist.log_prob(action)
+                
+                self.saved_states.append(state_embedding)
+                self.saved_actions.append(action)
+                self.saved_log_probs.append(log_prob)
+                
+                action = action.clamp(0, 1)
             
-        return returns
-
-    def get_system_prompt(self) -> str:
-        return """You are an expert blackjack player. Follow these strict rules:
-1. ALWAYS hit (Action: 1) if your total is 11 or below - no exceptions!
-2. With 12-16:
-   - Hit (Action: 1) if dealer shows 7 or higher
-   - Stay (Action: 0) if dealer shows 6 or lower
-3. ALWAYS stay (Action: 0) if your total is 17 or higher without an ace
-4. With a usable ace:
-   - Hit (Action: 1) if your total is 17 or below
-   - Stay (Action: 0) if your total is 18 or above
-Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
-
-    def format_observation(self, observation: gym.core.ObsType) -> str:
-        return f"Current hand total: {observation[0]}\nDealer's card: {observation[1]}\nUsable ace: {'yes' if bool(observation[2]) else 'no'}\nWhat is your action? Respond ONLY with Action: 0 or Action: 1."
-
-    def extract_action(self, response: str) -> gym.core.ActType:
-        match = re.compile(r"Action: (\d)").search(response)
-        if match:
-            return int(match.group(1))
-
-        digits = [char for char in response if char.isdigit()]
-        if len(digits) == 0 or digits[-1] not in ("0", "1"):
-            if "stick" in response.lower():
-                return 0
-            elif "hit" in response.lower():
-                return 1
-
-        return 0
+            return action.item()
 
     def terminate_episode(self):
         if self.algorithm == 'ppo':
             return super().terminate_episode()
-        else:  # GRPO
-            if not hasattr(self, 'current_episode_log_probs'):
-                self.current_episode_log_probs = []
-                
+        elif self.algorithm == 'grpo':
+            # Store current episode data
             self.current_group_episodes.append({
                 'rewards': self.current_episode_rewards.copy(),
                 'messages': self.current_episode_messages.copy(),
@@ -475,7 +339,10 @@ Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
             
             # Reset episode data
             self.current_episode_log_probs = []
+            self.current_episode_rewards = []
+            self.current_episode_messages = []
             
+            # Update policy if we have enough episodes
             if len(self.current_group_episodes) >= self.group_size:
                 group_returns = [sum(ep['rewards']) for ep in self.current_group_episodes]
                 mean_return = sum(group_returns) / len(group_returns)
@@ -485,21 +352,17 @@ Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
                 self.current_group_episodes = []
                 return stats
             return None
-    
 
     def _update_policy_grpo(self, relative_rewards):
-        all_messages = []
         all_log_probs = []
         flattened_rewards = []
         
         # Flatten episodes and expand rewards
         for episode, reward in zip(self.current_group_episodes, relative_rewards):
-            if len(episode['log_probs']) > 0:  # Only add if there are log probs
-                all_messages.extend(episode['messages'])
+            if len(episode['log_probs']) > 0:
                 all_log_probs.extend(episode['log_probs'])
                 flattened_rewards.extend([reward] * len(episode['log_probs']))
         
-        # Check if we have any data to process
         if not all_log_probs:
             return {
                 'policy_loss': 0.0,
@@ -507,20 +370,19 @@ Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
                 'std_reward': 0.0
             }
         
-        # Convert to tensors with gradients enabled
-        rewards_tensor = torch.tensor(flattened_rewards, device=self.device, requires_grad=False)
-        log_probs_tensor = torch.stack(all_log_probs)  # Use stack instead of tensor
+        # Convert rewards to tensor
+        rewards_tensor = torch.tensor(flattened_rewards, device=self.device)
         
-        # Compute policy loss with detached rewards
-        policy_loss = -(log_probs_tensor * rewards_tensor.detach()).mean()
+        # Stack log probabilities and ensure they require gradients
+        log_probs_tensor = torch.stack(all_log_probs)
+        
+        # Compute policy loss
+        policy_loss = -(log_probs_tensor * rewards_tensor).mean()
         
         # Update model
-        if not hasattr(self, 'optimizer'):
-            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-5)
-        
         self.optimizer.zero_grad()
         policy_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
         self.optimizer.step()
         
         return {
@@ -735,3 +597,5 @@ if __name__ == "__main__":
     tokenizer.save_pretrained(final_model_path)
 
     env.close()
+
+    #[ppo|dqn|a2c|reinforce|sac|grpo]
