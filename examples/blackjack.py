@@ -136,10 +136,21 @@ class BlackjackAgent(Agent):
             self.alpha = 0.2  # Temperature parameter
             self.target_entropy = -1.0
             self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+            self.tau = 0.005  # Target network update rate
             
             # Initialize networks
-            self.q1_net = nn.Linear(768, 2).to(self.device)
-            self.q2_net = nn.Linear(768, 2).to(self.device)
+            self.q1_net = nn.Sequential(
+                nn.Linear(768, 256),
+                nn.ReLU(),
+                nn.Linear(256, 2)
+            ).to(self.device)
+            
+            self.q2_net = nn.Sequential(
+                nn.Linear(768, 256),
+                nn.ReLU(),
+                nn.Linear(256, 2)
+            ).to(self.device)
+            
             self.target_q1_net = copy.deepcopy(self.q1_net)
             self.target_q2_net = copy.deepcopy(self.q2_net)
             
@@ -153,11 +164,54 @@ class BlackjackAgent(Agent):
             
             # Storage
             self.memory = deque(maxlen=10000)
+            self.saved_states = []
+            self.saved_actions = []
+            self.saved_log_probs = []
+            self.saved_rewards = []
+            self.saved_dones = []
+            
+        elif self.algorithm == 'grpo':
+            # GRPO specific parameters
+            self.gamma = 0.99
+            self.group_size = 5
+            self.max_grad_norm = 1.0
+            
+            # Initialize optimizer
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-5)
+            
+            # Storage
+            self.current_group_episodes = []
+            self.current_episode_log_probs = []
+            self.current_episode_rewards = []
+            self.current_episode_messages = []
 
     def act(self, observation):
         state_embedding = self.get_state_embedding(observation)
         
-        if self.algorithm == 'reinforce':
+        if self.algorithm == 'sac':
+            with torch.no_grad():
+                # Convert state embedding to float and ensure correct shape
+                state_input = state_embedding.float()
+                
+                # Get action logits from the model's value head
+                logits = self.model.v_head(state_input)
+                
+                # For discrete action space (Blackjack), use softmax
+                action_probs = F.softmax(logits, dim=-1)
+                
+                # Sample action using Gumbel-Softmax for discrete actions
+                temperature = 1.0
+                gumbel_dist = F.gumbel_softmax(logits, tau=temperature, hard=True)
+                action = torch.argmax(gumbel_dist)
+                
+                # Store necessary information for training
+                self.saved_states.append(state_input)
+                self.saved_actions.append(action)
+                self.saved_log_probs.append(torch.log(action_probs[0, action] + 1e-10))
+            
+            return action.item()
+            
+        elif self.algorithm == 'reinforce':
             with torch.no_grad():
                 # Convert state embedding to float and ensure correct shape
                 state_input = state_embedding.float()
