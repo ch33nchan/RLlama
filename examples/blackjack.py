@@ -78,14 +78,20 @@ class BlackjackAgent(Agent):
             self.saved_dones = []
             
         elif self.algorithm == 'dqn':
+            # DQN specific parameters
             self.memory = deque(maxlen=10000)
             self.epsilon = 1.0
             self.epsilon_min = 0.01
             self.epsilon_decay = 0.995
+            self.gamma = 0.99
+            
+            # Initialize networks
             self.target_model = copy.deepcopy(self.model)
             self.target_update_freq = 100
             self.step_counter = 0
-            self.gamma = 0.99  # Add gamma for DQN
+            
+            # Initialize optimizer
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-4)
             
         elif self.algorithm == 'a2c':
             # A2C specific parameters
@@ -111,11 +117,63 @@ class BlackjackAgent(Agent):
             self.saved_values = []
             self.saved_rewards = []
             self.saved_dones = []
+            
+        elif self.algorithm == 'reinforce':
+            # REINFORCE specific parameters
+            self.gamma = 0.99
+            
+            # Initialize optimizer
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-4)
+            
+            # Storage
+            self.saved_log_probs = []
+            self.saved_rewards = []
+            self.current_episode_rewards = []
+            
+        elif self.algorithm == 'sac':
+            # SAC specific parameters
+            self.gamma = 0.99
+            self.alpha = 0.2  # Temperature parameter
+            self.target_entropy = -1.0
+            self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+            
+            # Initialize networks
+            self.q1_net = nn.Linear(768, 2).to(self.device)
+            self.q2_net = nn.Linear(768, 2).to(self.device)
+            self.target_q1_net = copy.deepcopy(self.q1_net)
+            self.target_q2_net = copy.deepcopy(self.q2_net)
+            
+            # Initialize optimizers
+            self.q_optimizer = torch.optim.Adam([
+                {'params': self.q1_net.parameters()},
+                {'params': self.q2_net.parameters()}
+            ], lr=3e-4)
+            self.policy_optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-4)
+            self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=3e-4)
+            
+            # Storage
+            self.memory = deque(maxlen=10000)
 
     def act(self, observation):
         state_embedding = self.get_state_embedding(observation)
         
-        if self.algorithm == 'a2c':
+        if self.algorithm == 'reinforce':
+            with torch.no_grad():
+                # Convert state embedding to float and ensure correct shape
+                state_input = state_embedding.float()
+                logits = self.model.v_head(state_input)
+                action_probs = F.softmax(logits, dim=-1)
+                
+                # Sample action using categorical distribution
+                dist = Categorical(action_probs)
+                action = dist.sample()
+                
+                # Store log probability for training
+                self.saved_log_probs.append(dist.log_prob(action))
+            
+            return action.item()
+            
+        elif self.algorithm == 'a2c':
             # A2C implementation
             with torch.no_grad():
                 policy_logits = self.policy_net(state_embedding)
