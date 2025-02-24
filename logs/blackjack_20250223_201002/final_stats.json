@@ -1,8 +1,0 @@
-{
-  "training_episodes": 10,
-  "average_training_reward": 0.0,
-  "eval_episodes": 10,
-  "average_eval_reward": -0.6,
-  "algorithm": "sac",
-  "final_epsilon": null
-}
