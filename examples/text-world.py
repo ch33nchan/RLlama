@@ -4,7 +4,7 @@ from tqdm import trange
 import json
 from datetime import datetime
 import textworld.gym
-from llamagym import Agent
+from rllama import RLlamaAgent
 import random
 import argparse
 
@@ -18,6 +18,8 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 from collections import deque
 import numpy as np
+from rllama.memory import MemoryEntry, EpisodicMemory, WorkingMemory, MemoryCompressor
+import time
 
 # Configure device for Apple Silicon
 device = "mps" if torch.backends.mps.is_available() else "cpu"
@@ -28,7 +30,7 @@ else:
     if hasattr(torch.backends, 'mps'):
         torch.backends.mps.enabled = False
 
-class TextworldAgent(Agent):
+class TextWorldAgent(RLlamaAgent):
     def __init__(self, model, tokenizer, device, generate_kwargs, ppo_kwargs, algorithm='ppo'):
         super().__init__(model, tokenizer, device, generate_kwargs, ppo_kwargs)
         self.algorithm = algorithm
@@ -474,6 +476,40 @@ class TextworldAgent(Agent):
         log_prob = dist.log_prob(action).sum(dim=-1, keepdim=True)
         return action, log_prob
 
+    def act(self, observation):
+        state_embedding = self.get_state_embedding(observation)
+        
+        # Retrieve relevant past experiences
+        relevant_memories = self.episodic_memory.retrieve_relevant(state_embedding, k=3)
+        
+        # Add to working memory
+        for memory in relevant_memories:
+            self.working_memory.add(memory.state)
+        
+        # Get context-enhanced state
+        context = self.working_memory.get_context(state_embedding)
+        
+        # Use enhanced state for decision making
+        action = super().act(observation)
+        
+        # Store experience
+        self.episodic_memory.add(MemoryEntry(
+            state=state_embedding,
+            action=action,
+            reward=None,
+            next_state=None,
+            done=False,
+            timestamp=int(time.time())
+        ))
+        
+        return action
+
+    def assign_reward(self, reward):
+        if self.episodic_memory.memories:
+            latest_memory = self.episodic_memory.memories[-1]
+            latest_memory.reward = reward
+        super().assign_reward(reward)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run TextWorld with different RL algorithms')
     parser.add_argument('--algorithm', type=str, default='ppo', choices=['ppo', 'dqn', 'a2c', 'sac', 'reinforce', 'grpo'])
@@ -481,8 +517,8 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--lr', type=float, default=3e-4)
     args = parser.parse_args()
-
-    log_dir = f"logs/textworld_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    # Update log directory path
+    log_dir = f"/Users/cheencheen/Desktop/rl/RLlama/examples/logs/textworld_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     os.makedirs(log_dir, exist_ok=True)
     
     hyperparams = {
@@ -535,7 +571,7 @@ if __name__ == "__main__":
         tokenizer.pad_token = tokenizer.eos_token
         model.config.pad_token_id = tokenizer.pad_token_id
     
-    # Add special tokens and resize model embeddings
+   
     special_tokens = {
         "pad_token": "<pad>",
         "sep_token": "<sep>",
@@ -545,7 +581,7 @@ if __name__ == "__main__":
     tokenizer.add_special_tokens(special_tokens)
     model.pretrained_model.resize_token_embeddings(len(tokenizer))
     
-    agent = TextworldAgent(
+    agent = TextworldAgent(  
         model,
         tokenizer,
         device,
@@ -562,7 +598,7 @@ if __name__ == "__main__":
     )
 
     env_id = textworld.gym.register_game(
-        "examples/tw_games/custom_game.z8",
+        "/Users/cheencheen/Desktop/rl/RLlama/examples/tw_games/custom_game.z8",  # Updated path
         max_episode_steps=50,
         request_infos=textworld.EnvInfos(
             admissible_commands=True,

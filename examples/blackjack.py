@@ -17,17 +17,57 @@ from trl import AutoModelForCausalLMWithValueHead
 
 import re
 import gymnasium as gym
-from llamagym import Agent
+from rllama import RLlamaAgent  # Changed from llamagym import Agent
 
 import argparse
+from rllama.memory import MemoryEntry, EpisodicMemory, WorkingMemory, MemoryCompressor
+import time
 
 # Rest of the code remains the same...
 
-class BlackjackAgent(Agent):
+class BlackjackAgent(RLlamaAgent):  # Changed from Agent to RLlamaAgent
     def __init__(self, model, tokenizer, device, generate_kwargs, ppo_kwargs, algorithm='ppo'):
-        super().__init__(model, tokenizer, device, generate_kwargs, ppo_kwargs)
+        super().__init__(model, tokenizer, device, generate_kwargs, ppo_kwargs, algorithm)
         self.algorithm = algorithm
+        # Add memory components
+        self.episodic_memory = EpisodicMemory(capacity=1000)
+        self.working_memory = WorkingMemory(max_size=5)
+        self.memory_compressor = MemoryCompressor(compression_ratio=0.5)
         self.setup_algorithm()
+
+    def act(self, observation):
+        state_embedding = self.get_state_embedding(observation)
+        
+        # Retrieve relevant past experiences
+        relevant_memories = self.episodic_memory.retrieve_relevant(state_embedding, k=3)
+        
+        # Add to working memory
+        for memory in relevant_memories:
+            self.working_memory.add(memory.state)
+        
+        # Get context-enhanced state
+        context = self.working_memory.get_context(state_embedding)
+        
+        # Use enhanced state for decision making
+        action = super().act(observation)
+        
+        # Store experience
+        self.episodic_memory.add(MemoryEntry(
+            state=state_embedding,
+            action=action,
+            reward=None,
+            next_state=None,
+            done=False,
+            timestamp=int(time.time())
+        ))
+        
+        return action
+
+    def assign_reward(self, reward):
+        if self.episodic_memory.memories:
+            latest_memory = self.episodic_memory.memories[-1]
+            latest_memory.reward = reward
+        super().assign_reward(reward)
 
     def get_state_embedding(self, observation):  # Fixed indentation
         # Convert observation to string format
@@ -78,7 +118,6 @@ Respond ONLY with 'Action: 1' to hit or 'Action: 0' to stay."""
         return 0
 
     def setup_algorithm(self):
-        # ... rest of the code ...
         # Initialize common attributes
         self.current_group_episodes = []
         self.group_size = 5  # Default group size
@@ -800,7 +839,7 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=UserWarning)
     
     # Create log directory
-    log_dir = f"logs/blackjack_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    log_dir = f"/Users/cheencheen/Desktop/rl/RLlama/examples/logs/blackjack_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     os.makedirs(log_dir, exist_ok=True)
     
     hyperparams = {
@@ -972,5 +1011,3 @@ if __name__ == "__main__":
     tokenizer.save_pretrained(final_model_path)
 
     env.close()
-
-    #[ppo|dqn|a2c|reinforce|sac|grpo]
