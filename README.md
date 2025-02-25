@@ -1,93 +1,127 @@
+Here's the complete updated README.md file for RLlama:
+
+```markdown:/Users/cheencheen/Desktop/rl/RLlama/README.md
 <p align="center">
-  <img src="https://raw.githubusercontent.com/khoomeik/LlamaGym/main/llamagym.png" height="250" alt="Llama Gym" />
+  <img src="https://raw.githubusercontent.com/ch33nchan/RLlama/main/rllama.jpg" height="250" alt="RLlama" />
 </p>
 <p align="center">
-  <em>Fine-tune LLM agents with online reinforcement learning</em>
+  <em>Empowering LLMs with Memory-Augmented Reinforcement Learning</em>
 </p>
 <p align="center">
-    <a href="https://pypi.org/project/llamagym/" target="_blank">
+    <a href="https://pypi.org/project/rllama/" target="_blank">
         <img alt="Python" src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54" />
-        <img alt="Version" src="https://img.shields.io/pypi/v/llamagym?style=for-the-badge&color=3670A0">
+        <img alt="Version" src="https://img.shields.io/pypi/v/rllama?style=for-the-badge&color=3670A0">
     </a>
 </p>
 <p align="center">
-<a href="https://reworkd.ai/">🔗 Agents for Web Data Extraction</a>
+<a href="https://github.com/ch33nchan/RLlama">🔗 GitHub Repository</a>
 <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-<a href="https://x.com/khoomeik/status/1766805213644800011">🐦 Twitter</a>
+<a href="https://pypi.org/project/rllama">📦 PyPI Package</a>
+</p>
 
+# RLlama
 
-# LlamaGym
-"Agents" originated in reinforcement learning, where they learn by interacting with an environment and receiving a reward signal. However, LLM-based agents today do not learn online (i.e. continuously in real time) via reinforcement.
+RLlama introduces a novel approach to training Large Language Models (LLMs) by combining memory-augmented learning with reinforcement learning techniques. Our framework simplifies the process of implementing and experimenting with various RL algorithms while maintaining the context and memory of previous interactions.
 
-OpenAI created [Gym](https://github.com/Farama-Foundation/Gymnasium) to standardize and simplify RL environments, but if you try dropping an LLM-based agent into a Gym environment for training, you'd find it's still quite a bit of code to handle LLM conversation context, episode batches, reward assignment, PPO setup, and more.
+## Features
 
-LlamaGym seeks to simplify fine-tuning LLM agents with RL. Right now, it's a single `Agent` abstract class that handles all the issues mentioned above, letting you quickly iterate and experiment with agent prompting & hyperparameters across any Gym environment.
+- 🧠 Memory-Augmented Learning
+- 🎮 Multiple RL Algorithms (PPO, DQN, A2C, SAC, REINFORCE)
+- 🔄 Online Learning Support
+- 🎯 Seamless Integration with Gymnasium
+- 🚀 Multi-Modal Support (Coming Soon)
+
+## Quick Start
+
+Get started with RLlama in seconds:
+
+```bash
+pip install rllama
+```
 
 ## Usage
-Fine-tuning an LLM-based agent to play in a Gym-style environment with RL has never been easier! Once you install LlamaGym...
-```
-pip install llamagym
-```
 
-First, implement 3 abstract methods on the Agent class:
+Here's how to create a simple blackjack agent:
+
 ```python
-from llamagym import Agent
+from rllama import RLlamaAgent
 
-class BlackjackAgent(Agent):
+class BlackjackAgent(RLlamaAgent):
     def get_system_prompt(self) -> str:
-        return "You are an expert blackjack player."
+        return """You are an expert blackjack player. Follow these rules:
+        1. ALWAYS hit if your total is 11 or below
+        2. With 12-16: hit if dealer shows 7+, stay if 6 or lower
+        3. ALWAYS stay if your total is 17+ without an ace
+        4. With a usable ace: hit if total is 17 or below"""
 
     def format_observation(self, observation) -> str:
-        return f"Your current total is {observation[0]}"
+        return f"Current hand total: {observation[0]}\nDealer's card: {observation[1]}\nUsable ace: {'yes' if observation[2] else 'no'}"
 
     def extract_action(self, response: str):
-        return 0 if "stay" in response else 1
+        return 0 if "stay" in response.lower() else 1
 ```
 
-Then, define your base LLM (as you would for any fine-tuning job) and instantiate your agent:
-```python
-model = AutoModelForCausalLMWithValueHead.from_pretrained("Llama-2-7b").to(device)
-tokenizer = AutoTokenizer.from_pretrained("Llama-2-7b")
-agent = BlackjackAgent(model, tokenizer, device)
-```
+Train your agent:
 
-Finally, write your RL loop as usual and simply call your agent to act, reward, and terminate:
 ```python
+import gymnasium as gym
+from transformers import AutoTokenizer, AutoModelForCausalLMWithValueHead
+
+# Initialize model and agent
+model = AutoModelForCausalLMWithValueHead.from_pretrained("meta-llama/Llama-2-7b-hf")
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+agent = BlackjackAgent(model, tokenizer, "cuda", algorithm="ppo")
+
+# Training loop
 env = gym.make("Blackjack-v1")
-
-for episode in trange(5000):
+for episode in range(1000):
     observation, info = env.reset()
     done = False
-
+    
     while not done:
-        action = agent.act(observation) # act based on observation
+        action = agent.act(observation)
         observation, reward, terminated, truncated, info = env.step(action)
-        agent.assign_reward(reward) # provide reward to agent
+        agent.assign_reward(reward)
         done = terminated or truncated
-
-    train_stats = agent.terminate_episode() # trains if batch is full
+    
+    agent.terminate_episode()
 ```
 
-Some reminders:
-- above code snippets are mildly simplified above but a fully working example is available in [`examples/blackjack.py`](https://github.com/KhoomeiK/LlamaGym/blob/main/examples/blackjack.py)
-- getting online RL to converge is notoriously difficult so you'll have to mess with hyperparameters to see improvement
-  - your model may also benefit from a supervised fine-tuning stage on sampled trajectories before running RL (we may add this feature in the future)
-- our implementation values simplicity so is not as compute efficient as e.g. [Lamorel](https://github.com/flowersteam/lamorel), but easier to start playing around with
-- LlamaGym is a weekend project and still a WIP, but we love contributions!
+## Examples
+
+Check out our example implementations:
+- [Blackjack Agent](/examples/blackjack.py)
+- [Text World Agent](/examples/textworld_agent.py) (Coming Soon)
+- [Multi-Modal Agent](/examples/multimodal_agent.py) (Coming Soon)
+
+## Contributing
+
+We welcome contributions! Here's how:
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## Relevant Work
+
 - [Grounding Large Language Models with Online Reinforcement Learning](https://github.com/flowersteam/Grounding_LLMs_with_online_RL)
-  - [Lamorel: Language Models for Reinforcement Learning](https://github.com/flowersteam/lamorel)
-- [True Knowledge Comes from Practice: Aligning LLMs with Embodied Environments via Reinforcement Learning](https://github.com/WeihaoTan/TWOSOME)
+- [Lamorel: Language Models for Reinforcement Learning](https://github.com/flowersteam/lamorel)
 
 ## Citation
-```
-bibtex
-@misc{pandey2024llamagym,
-  title        = {LlamaGym: Fine-tune LLM agents with Online Reinforcement Learning},
-  author       = {Rohan Pandey},
-  year         = {2024},
-  howpublished = {GitHub},
-  url          = {https://github.com/KhoomeiK/LlamaGym}
+
+```bibtex
+@misc{ch33nchan2024rllama,
+    title = {RLlama: Memory-Augmented Reinforcement Learning Framework for LLMs},
+    author = {Ch33nchan},
+    year = {2024},
+    publisher = {GitHub},
+    url = {https://github.com/ch33nchan/RLlama}
 }
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 ```
