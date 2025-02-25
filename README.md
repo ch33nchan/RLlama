@@ -14,6 +14,8 @@
 <a href="https://github.com/ch33nchan/RLlama">🔗 GitHub Repository</a>
 <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
 <a href="https://pypi.org/project/rllama">📦 PyPI Package</a>
+<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+<a href="https://www.producthunt.com/posts/rllama?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-rllama" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=429561&theme=light" alt="RLlama - Memory&#0045;augmented&#0032;reinforcement&#0032;learning&#0032;for&#0032;LLMs | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
 </p>
 
 # RLlama
