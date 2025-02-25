@@ -542,7 +542,7 @@ if __name__ == "__main__":
     with open(f"{log_dir}/config.json", "w") as f:
         json.dump(hyperparams, f, indent=2)
     
-    HF_TOKEN = "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"
+    HF_TOKEN = ""
     
     lora_config = LoraConfig(
         **{
