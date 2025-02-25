@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ch33nchan/RLlama/main/rllama.jpg" height="250" alt="RLlama" />
+  <img src="https://raw.githubusercontent.com/ch33nchan/RLlama/main/llamagym.jpg" height="250" alt="RLlama" />
 </p>
 <p align="center">
   <em>Empowering LLMs with Memory-Augmented Reinforcement Learning</em>
