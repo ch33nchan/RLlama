@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rllama"
-version = "0.1.0"
+version = "0.1.2" 
 description = "A reinforcement learning framework for training LLMs featuring memory-augmented learning and multi-modal capabilities (coming soon)"
 authors = ["ch33nchan <ch33nchan@gmail.com>"]
 license = "MIT"
