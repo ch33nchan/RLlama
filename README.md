@@ -15,6 +15,8 @@
 <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
 <a href="https://pypi.org/project/rllama">📦 PyPI Package</a>
 <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+<a href="https://www.producthunt.com/posts/rllama?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-rllama" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=911446&theme=dark&t=1740484895969" alt="RLLama - Empowering&#0032;LLMs&#0032;with&#0032;Memory&#0045;Augmented&#0032;Reinforcement&#0032;Learning | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+</p>
 
 
 # RLlama
@@ -157,3 +159,5 @@ We welcome contributions! Here's how:
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 ```
+
+#https://news.ycombinator.com/item?id=43167073
