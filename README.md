@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ch33nchan/RLlama/main/llamagym.jpg" height="250" alt="RLlama" />
+  <img src="https://raw.githubusercontent.com/ch33nchan/RLlama/main/rllama.jpg" height="250" alt="RLlama" />
 </p>
 <p align="center">
   <em>Empowering LLMs with Memory-Augmented Reinforcement Learning</em>
@@ -18,12 +18,12 @@
 
 # RLlama
 
-RLlama introduces a novel approach to training Large Language Models (LLMs) by combining memory-augmented learning with reinforcement learning techniques. Our framework simplifies the process of implementing and experimenting with various RL algorithms while maintaining the context and memory of previous interactions.
+RLlama is an enhanced fork of [LlamaGym](https://github.com/KhoomeiK/LlamaGym), supercharging it with memory-augmented learning capabilities and additional RL algorithms. While LlamaGym pioneered the integration of LLMs with reinforcement learning, RLlama takes it further by introducing episodic memory, working memory, and a broader suite of RL algorithms.
 
 ## Features
 
-- 🧠 Memory-Augmented Learning
-- 🎮 Multiple RL Algorithms (PPO, DQN, A2C, SAC, REINFORCE)
+- 🧠 Memory-Augmented Learning with Episodic and Working Memory
+- 🎮 Multiple RL Algorithms (PPO, DQN, A2C, SAC, REINFORCE, GRPO)
 - 🔄 Online Learning Support
 - 🎯 Seamless Integration with Gymnasium
 - 🚀 Multi-Modal Support (Coming Soon)
@@ -38,7 +38,7 @@ pip install rllama
 
 ## Usage
 
-Here's how to create a simple blackjack agent:
+### Blackjack Agent Example
 
 ```python
 from rllama import RLlamaAgent
@@ -58,7 +58,28 @@ class BlackjackAgent(RLlamaAgent):
         return 0 if "stay" in response.lower() else 1
 ```
 
-Train your agent:
+### Text World Agent Example
+
+```python
+from rllama import RLlamaAgent
+import re
+
+class TextWorldAgent(RLlamaAgent):
+    def get_system_prompt(self) -> str:
+        return """You will be playing a text-based game. Here are some example commands: 
+        'go west', 'inventory', 'drop teacup', 'examine broom', 'open door', 'look'."""
+
+    def format_observation(self, observation) -> str:
+        return observation.split("$$$$$$$ \n\n")[-1].strip()
+
+    def extract_action(self, response: str) -> str:
+        command_match = re.search(r"command: (.+?)(?=\n|$)", response, re.IGNORECASE)
+        return command_match.group(1) if command_match else "look"
+```
+
+## Training Examples
+
+### Basic Training Loop
 
 ```python
 import gymnasium as gym
@@ -84,12 +105,24 @@ for episode in range(1000):
     agent.terminate_episode()
 ```
 
-## Examples
+## Example Implementations
 
-Check out our example implementations:
-- [Blackjack Agent](/examples/blackjack.py)
-- [Text World Agent](/examples/textworld_agent.py) (Coming Soon)
+Check out our complete examples:
+- [Blackjack Agent](/examples/blackjack.py) - Classic card game environment
+- [Text World Agent](/examples/text-world.py) - Text-based adventure game with memory augmentation
 - [Multi-Modal Agent](/examples/multimodal_agent.py) (Coming Soon)
+
+## Memory-Augmented Learning
+
+RLlama implements two types of memory systems:
+1. **Episodic Memory**: Stores and retrieves past experiences
+2. **Working Memory**: Maintains context for current decision-making
+
+These systems allow agents to:
+- Learn from past experiences
+- Maintain context across multiple steps
+- Make more informed decisions
+- Handle complex, long-term dependencies
 
 ## Contributing
 
@@ -103,6 +136,7 @@ We welcome contributions! Here's how:
 
 ## Relevant Work
 
+- [LlamaGym: Fine-tune LLM agents with Online Reinforcement Learning](https://github.com/KhoomeiK/LlamaGym)
 - [Grounding Large Language Models with Online Reinforcement Learning](https://github.com/flowersteam/Grounding_LLMs_with_online_RL)
 - [Lamorel: Language Models for Reinforcement Learning](https://github.com/flowersteam/lamorel)
 
