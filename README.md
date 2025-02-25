@@ -1,6 +1,3 @@
-Here's the complete updated README.md file for RLlama:
-
-```markdown:/Users/cheencheen/Desktop/rl/RLlama/README.md
 <p align="center">
   <img src="https://raw.githubusercontent.com/ch33nchan/RLlama/main/rllama.jpg" height="250" alt="RLlama" />
 </p>
