@@ -13,7 +13,10 @@ setup(
         "accelerate>=0.19.0",
         "bitsandbytes>=0.37.2",
         "tqdm",
-        "numpy"
+        "numpy",
+        "plotly>=5.13.0",  # For visualization
+        "pandas>=1.5.0",   # For data handling
+        "scipy>=1.9.0"     # For optimization
     ],
     author="Your Name",
     author_email="your.email@example.com",
