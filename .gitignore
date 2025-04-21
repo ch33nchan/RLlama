@@ -1,6 +1,18 @@
-wandb/
-.vscode/
-.env
+# Python virtual environment
+venv/
+
+# Python cache files
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
+build/
 dist/
-.logs
+*.egg-info/
+.eggs/
+
+# Other common ignores (add as needed)
+*.log
+.DS_Store
