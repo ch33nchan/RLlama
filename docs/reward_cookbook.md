@@ -48,3 +48,38 @@ final_reward = composer.combine_rewards(raw_rewards, current_weights)
 
 # Use final_reward in your agent's update
 # agent.learn(state, action, final_reward, next_state, done)
+```
+
+## Configuration via YAML
+
+Instead of defining `RewardConfig` objects directly in Python, you can load the shaping configuration from a YAML file. This allows easier experimentation without modifying the training script.
+
+**Example (`config.yaml`):**
+```yaml
+# Global composer settings (optional)
+composer_settings:
+  normalize: true
+  norm_window: 2000
+
+# Define components for the registry (optional, if using registry)
+reward_components:
+  my_goal:
+    class: goal # Name in registry
+    params:
+      goal_key: "is_success" # Parameter for GoalReward.__init__
+  penalty:
+    class: step_penalty
+    params:
+      penalty: -0.01
+
+# Define shaping parameters
+reward_shaping:
+  goal: # Must match component's .name property
+    initial_weight: 1.0
+    decay_schedule: 'none'
+  step_penalty:
+    initial_weight: 0.5
+    decay_schedule: 'linear'
+    decay_steps: 10000
+    min_weight: 0.05
+```

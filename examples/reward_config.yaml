@@ -1,17 +1,38 @@
-frozen_lake_goal:
-  name: frozen_lake_goal
-  initial_weight: 1.0
-  decay_schedule: 'none'
-frozen_lake_hole:
-  name: frozen_lake_hole
-  initial_weight: 1.0
-  decay_schedule: 'none'
-step_penalty:
-  name: step_penalty
-  initial_weight: 1.0 # Was 0.5 with decay, now constant 1.0
-  decay_schedule: 'none'
-  # Example of adding decay back if needed:
-  # initial_weight: 0.5
-  # decay_schedule: 'linear'
-  # decay_steps: 5000
-  # min_weight: 0.0
+# Configuration for the Reward Shaping Framework
+
+# Optional: Global settings for RewardComposer
+composer_settings:
+  normalize: false # Set to true to enable running normalization
+  norm_window: 1000
+
+# Define which reward components to use and their parameters
+# Used by the registry to instantiate components
+reward_components:
+  goal: # Name used in registry
+    class: frozen_lake_goal # Specific class name (if not in registry) or registered name
+    params: {} # No params for this one
+  hole:
+    class: frozen_lake_hole
+    params: {}
+  step:
+    class: step_penalty # Use registered name
+    params:
+      penalty: -0.01 # Parameter for StepPenaltyReward.__init__
+
+# Define shaping configurations (weights, decay) for RewardShaper
+# Keys here MUST match the 'name' property of the instantiated reward components
+reward_shaping:
+  frozen_lake_goal: # Must match FrozenLakeGoalReward().name
+    initial_weight: 1.0
+    decay_schedule: 'none'
+  frozen_lake_hole: # Must match FrozenLakeHolePenalty().name
+    initial_weight: 1.0
+    decay_schedule: 'none'
+  step_penalty: # Must match StepPenaltyReward().name
+    initial_weight: 1.0
+    decay_schedule: 'none'
+    # Example with decay:
+    # initial_weight: 0.5
+    # decay_schedule: 'linear'
+    # decay_steps: 5000
+    # min_weight: 0.0
