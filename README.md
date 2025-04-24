@@ -113,7 +113,7 @@ graph LR
 
 ## Core Functionalities & Usage Examples
 
-Let's explore how to use the key features:
+Let's explore how to use the key features. For more advanced configurations and strategies, check out the **[Reward Shaping Cookbook](docs/reward_cookbook.md)**.
 
 ### 1. Defining Custom Reward Components
 
@@ -386,120 +386,17 @@ Here's how the components typically fit into a standard agent training loop:
 
 ---
 
-## Capabilities & Advanced Recipes
+## Capabilities & Advanced Recipes Summary
 
-This framework enables sophisticated reward engineering:
+This framework enables sophisticated reward engineering. Key capabilities include:
 
-*   **Curriculum Learning:** Gradually shift focus from easy sub-tasks to the main goal by scheduling weights.
-*   **Intrinsic Motivation:** Combine task rewards with exploration bonuses (e.g., state novelty) to tackle sparse reward problems.
-*   **Balancing Rewards:** Use normalization to effectively combine rewards operating on different scales.
-*   **Modular Experimentation:** Easily swap reward components or tune parameters via YAML without altering core logic.
-*   **Debugging & Analysis:** Visualize reward signals and weights to understand agent incentives.
+*   **Curriculum Learning:** Gradually shift focus using weight scheduling.
+*   **Intrinsic Motivation:** Combine task rewards with exploration bonuses.
+*   **Balancing Rewards:** Use normalization for components with different scales.
+*   **Modular Experimentation:** Swap components or tune parameters via YAML.
+*   **Debugging & Analysis:** Visualize reward signals and weights.
 
-**Recipe 1: Curriculum Learning via Weight Scheduling**
-
-*   **Goal:** Train an agent on a complex task by initially emphasizing simpler sub-goals and gradually increasing the weight of the main task reward.
-*   **Concept:** Use different decay/increase schedules for reward components. Start with a high weight for an "easy" reward (e.g., reaching an intermediate checkpoint) and a low weight for the "hard" final goal reward. Schedule the easy reward weight to decay while the hard reward weight increases or stays high.
-*   **Example (`reward_config.yaml`):**
-
-    ```yaml
-    reward_components:
-      checkpoint:
-        class: CheckpointReward # Assumes you created this custom reward
-        params:
-          target_region: [10, 10, 5, 5] # Example parameter
-      final_goal:
-        class: GoalReward # Assumes a standard goal reward component
-        params:
-          goal_key: "is_success"
-      step_penalty:
-        class: step_penalty
-        params:
-          penalty: -0.01
-
-    reward_shaping:
-      checkpoint_reward: # Name matches CheckpointReward().name
-        initial_weight: 5.0
-        decay_schedule: 'linear'
-        decay_steps: 50000 # Decay over 50k steps
-        min_weight: 0.1
-      goal_reward: # Name matches GoalReward().name
-        initial_weight: 10.0 # Keep final goal weight high
-        decay_schedule: 'none'
-        # To make it increase, you might need a custom schedule or use 'start_step' logic
-        # initial_weight: 0.5
-        # decay_schedule: 'linear_increase' # Requires custom implementation
-        # decay_steps: 50000
-        # max_weight: 10.0
-      step_penalty:
-        initial_weight: 1.0
-        decay_schedule: 'none'
-    ```
-*   **Implementation Notes:** You might need to implement custom decay schedules or add a `start_step` parameter to `RewardConfig` and `RewardShaper` to delay the activation or decay of certain weights if the built-in schedules aren't sufficient.
-
-**Recipe 2: Combining Intrinsic Curiosity with Extrinsic Rewards**
-
-*   **Goal:** Encourage exploration in sparse reward environments using an intrinsic motivation signal (like novelty) alongside the main task reward.
-*   **Concept:** Implement a reward component that measures state novelty (e.g., using a count-based approach, or prediction error from a learned model). Combine this intrinsic reward with the extrinsic task reward (e.g., reaching the goal). The intrinsic reward's weight might be decayed over time as the agent explores more.
-*   **Example (`reward_config.yaml`):**
-
-    ```yaml
-    reward_components:
-      novelty:
-        class: StateNoveltyReward # Assumes custom implementation
-        params:
-          buffer_size: 10000
-          novelty_scale: 0.1
-      goal:
-        class: GoalReward
-        params:
-          goal_key: "is_success"
-
-    reward_shaping:
-      state_novelty: # Matches StateNoveltyReward().name
-        initial_weight: 2.0
-        decay_schedule: 'exponential'
-        decay_rate: 0.9999 # Decay slowly
-        decay_steps: 1 # Decay happens per step for exponential
-        min_weight: 0.05
-      goal_reward: # Matches GoalReward().name
-        initial_weight: 10.0
-        decay_schedule: 'none'
-    ```
-*   **Implementation Notes:** The `StateNoveltyReward` component would need internal logic to track visited states or manage a predictive model. Its `__call__` method would return a higher value for less familiar `next_state` inputs.
-
-**Recipe 3: Normalizing Rewards with Different Scales**
-
-*   **Goal:** Combine reward components that naturally operate on very different scales (e.g., a dense distance reward between -1 and 0, and a sparse goal reward of +100) without one dominating the other unintentionally.
-*   **Concept:** Enable normalization in the `RewardComposer`. This calculates running statistics (mean, std dev) for each raw reward component over a specified window and scales them (typically to zero mean, unit variance) before applying the weights.
-*   **Example (`reward_config.yaml`):**
-
-    ```yaml
-    composer_settings:
-      normalize: true # Enable normalization
-      norm_window: 5000 # Calculate stats over the last 5000 steps
-      norm_epsilon: 1e-8 # Small value to prevent division by zero
-
-    reward_components:
-      distance:
-        class: DistanceToGoalReward # Assumes custom implementation
-        params:
-          scale: -1.0 # e.g., returns negative distance
-      goal:
-        class: GoalReward
-        params:
-          goal_key: "is_success"
-          reward_value: 100.0 # Large sparse reward
-
-    reward_shaping:
-      distance_reward: # Matches DistanceToGoalReward().name
-        initial_weight: 1.0 # Weights now apply to normalized values
-        decay_schedule: 'none'
-      goal_reward: # Matches GoalReward().name
-        initial_weight: 1.0 # Weights now apply to normalized values
-        decay_schedule: 'none'
-    ```
-*   **Considerations:** Normalization introduces non-stationarity into the reward signal, which can affect some RL algorithms. The `norm_window` size is a crucial hyperparameter. It also requires a "warm-up" period for the statistics to become meaningful.
+**For detailed examples and implementation patterns (like Potential-Based Shaping, Action Penalties, Survival Bonuses, etc.), please refer to the [Reward Shaping Cookbook](docs/reward_cookbook.md).**
 
 ---
 
