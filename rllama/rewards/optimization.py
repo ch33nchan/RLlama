@@ -102,12 +102,17 @@ class BayesianRewardOptimizer:
     def _create_objective_wrapper(self) -> Callable[[optuna.Trial], float]:
         """Creates the objective function wrapper for Optuna."""
 
+        # Define 'objective' as a nested function that captures 'self' from the outer scope.
+        # It should only accept 'trial' as its argument from Optuna.
         def objective(trial: optuna.Trial) -> float:
+            """Wrapper objective function passed to Optuna study."""
             # Create a deep copy to avoid modifying the base config between trials
+            # Access 'self' from the enclosing scope (captured)
             current_config = copy.deepcopy(self.base_config)
             current_shaping = current_config.setdefault("reward_shaping", {})
 
             # Sample hyperparameters for this trial
+            # Access 'self' from the enclosing scope (captured)
             for comp_name, params in self.search_space.items():
                 if comp_name not in current_shaping:
                     # Initialize component shaping if not present in base config
@@ -153,22 +158,22 @@ class BayesianRewardOptimizer:
                     shaping_params.setdefault('decay_schedule', 'none')
 
 
+            # Access 'self' from the enclosing scope (captured)
             logger.info(f"Trial {trial.number}: Running with config:\n{yaml.dump({'reward_shaping': current_shaping})}")
 
             # Call the user-provided objective function
             try:
-                score = self.objective_fn(current_config, trial)
-                logger.info(f"Trial {trial.number}: Score = {score}")
+                # Access 'self' from the enclosing scope (captured)
+                # Pass ONLY the trial object, as the user's objective_fn (the lambda) expects only that.
+                score = self.objective_fn(trial) # Pass only trial
                 return score
             except Exception as e:
-                 logger.error(f"Trial {trial.number}: Failed with exception: {e}", exc_info=True)
-                 # Optuna handles exceptions, but logging helps.
-                 # Consider returning a very bad score or re-raising depending on desired behavior.
-                 # Returning a bad score might be better if some failures are expected.
-                 # Re-raising will stop the study unless caught by Optuna's catch mechanism.
-                 raise # Re-raise to let Optuna handle it (marks trial as FAIL)
+                # Access 'self' from the enclosing scope (captured)
+                # Use logger directly as it's defined at the module level or captured self.logger if defined
+                logger.error(f"Trial {trial.number}: Failed with exception: {e}", exc_info=True) # Log full traceback
+                raise e # Re-raising helps debug
 
-
+        # Return the correctly defined nested function
         return objective
 
     def optimize(self) -> optuna.Study:

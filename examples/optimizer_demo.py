@@ -26,7 +26,7 @@ try:
     # print("OK: get_reward_component") # Removed debug print
 
     # print("Attempting to import BayesianRewardOptimizer...") # Removed debug print
-    # from rllama.rewards import BayesianRewardOptimizer # Commented out as usage is commented below
+    from rllama.rewards import BayesianRewardOptimizer
     # print("OK: BayesianRewardOptimizer") # Removed debug print
 
     # We don't need the dashboard for this specific demo
@@ -227,96 +227,121 @@ def objective(trial: optuna.Trial, base_config: Dict[str, Any], search_space: Di
 
 # --- Main Execution ---
 if __name__ == "__main__":
-    # 1. Load Base Config
-    base_config_path = '/Users/cheencheen/Desktop/git/rl/RLlama/examples/optimizer_demo_config.yaml'
-    logger.info(f"Loading base config from: {base_config_path}")
+    # 1. Load Base Configuration
+    config_path = "/Users/cheencheen/Desktop/git/rl/RLlama/examples/optimizer_demo_config.yaml"
     try:
-        with open(base_config_path, 'r') as f:
+        with open(config_path, 'r') as f:
             base_config = yaml.safe_load(f)
+        logger.info(f"Loaded base configuration from: {config_path}")
     except FileNotFoundError:
-        logger.error(f"Base config file not found at {base_config_path}")
+        logger.error(f"Configuration file not found at: {config_path}")
         exit(1)
-    except Exception as e:
-        logger.error(f"Error loading base config: {e}")
+    except yaml.YAMLError as e:
+        logger.error(f"Error parsing configuration file: {e}")
         exit(1)
-
 
     # 2. Define Search Space for Optuna
-    # We want to tune the 'initial_weight' for goal, step penalty, and hole penalty.
+    # This defines WHICH parameters Optuna should tune and their ranges/choices.
+    # Keys should match the component names in reward_shaping in the YAML.
+    # Parameter names within each component dict should match RewardConfig fields (e.g., 'initial_weight').
     search_space = {
-        "goal_reward": { # Matches GoalReward().name
-            "initial_weight": {"type": "float", "low": 1.0, "high": 20.0, "log": True}
+        "goal_reward": { # Matches the key in reward_shaping
+            "initial_weight": {"type": "float", "low": 0.1, "high": 20.0, "log": True}
         },
-        "step_penalty": { # Matches StepPenaltyReward().name
-            "initial_weight": {"type": "float", "low": 0.1, "high": 5.0, "log": False}
+        "step_penalty": { # Matches the key in reward_shaping
+            "initial_weight": {"type": "float", "low": 0.1, "high": 10.0, "log": True}
         },
-        "hole_penalty": { # Matches HolePenaltyReward().name
-             "initial_weight": {"type": "float", "low": 0.1, "high": 5.0, "log": False}
+        "hole_penalty": { # Matches the key in reward_shaping
+            "initial_weight": {"type": "float", "low": 0.1, "high": 10.0, "log": True}
         }
-        # Add other parameters like decay_schedule, decay_steps etc. here if needed
+        # Add other parameters to tune here if needed (e.g., decay parameters if using schedules)
     }
-    logger.info("Search Space for Optimization:")
-    logger.info(yaml.dump(search_space))
+    logger.info("Defined Optuna search space:")
+    logger.info(yaml.dump({'search_space': search_space}))
 
-    # 3. Create BayesianRewardOptimizer instance (Temporarily Commented Out)
+
+    # 3. Create BayesianRewardOptimizer instance (Uncomment this block)
     # Use a lambda to pass base_config and search_space to the objective wrapper inside the optimizer
-    # objective_with_context = lambda trial: objective(trial, base_config, search_space)
+    objective_with_context = lambda trial: objective(trial, base_config, search_space)
 
     # Define study storage path
-    # storage_dir = "/Users/cheencheen/Desktop/git/rl/RLlama/examples/optuna_results"
-    # os.makedirs(storage_dir, exist_ok=True)
-    # storage_path = f"sqlite:///{os.path.join(storage_dir, 'reward_opt_demo.db')}"
-    # study_name = "frozenlake_reward_tuning_demo"
+    storage_dir = "/Users/cheencheen/Desktop/git/rl/RLlama/examples/optuna_results"
+    os.makedirs(storage_dir, exist_ok=True)
+    storage_path = f"sqlite:///{os.path.join(storage_dir, 'reward_opt_demo.db')}"
+    study_name = "frozenlake_reward_tuning_demo"
 
-    # logger.info(f"Setting up BayesianRewardOptimizer. Study: '{study_name}', Storage: '{storage_path}'")
+    logger.info(f"Setting up BayesianRewardOptimizer. Study: '{study_name}', Storage: '{storage_path}'")
 
-    # optimizer = BayesianRewardOptimizer( # Keep this commented out
-    #     base_config=base_config,
-    #     search_space=search_space, # Pass the search space here for validation and structure
-    #     objective_fn=objective_with_context, # Pass the lambda wrapper
-    #     n_trials=20,  # Number of optimization trials (keep low for demo)
-    #     study_name=study_name,
-    #     storage=storage_path,
-    #     direction="maximize" # We want to maximize the average episode reward
-    # )
+    optimizer = BayesianRewardOptimizer( # Uncomment this instantiation
+        base_config=base_config,
+        search_space=search_space, # Pass the search space here for validation and structure
+        objective_fn=objective_with_context, # Pass the lambda wrapper
+        n_trials=20,  # Number of optimization trials (increase for real run)
+        study_name=study_name,
+        storage=storage_path,
+        direction="maximize" # We want to maximize the average episode reward
+    )
 
-    # 4. Run Optimization (Temporarily Commented Out)
-    # logger.info(f"Starting optimization with {optimizer.n_trials} trials...") # Keep this commented out
-    # try:
-    #     study = optimizer.optimize() # Keep this commented out
-
-    #     # 5. Print Best Results
-    #     logger.info("\n--- Optimization Finished ---")
-    #     logger.info(f"Best trial number: {study.best_trial.number}")
-    #     logger.info(f"Best value (average reward): {study.best_trial.value:.4f}")
-    #     logger.info("Best hyperparameters found:")
-    #     for key, value in study.best_trial.params.items():
-    #         logger.info(f"  {key}: {value}")
-
-    #     # Get the full config corresponding to the best trial
-    #     best_config = optimizer.get_best_config(study)
-    #     logger.info("\nBest full configuration:")
-    #     logger.info(yaml.dump(best_config))
-
-    #     # Save the best config
-    #     best_config_path = os.path.join(storage_dir, "best_reward_config.yaml")
-    #     with open(best_config_path, 'w') as f:
-    #         yaml.dump(best_config, f, default_flow_style=False)
-    #     logger.info(f"Best configuration saved to: {best_config_path}")
-
-    # except Exception as e:
-    #     logger.error(f"An error occurred during optimization: {e}", exc_info=True)
-
-    # --- Temporary code to just run one trial directly ---
-    logger.info("Running a single trial directly for testing...")
+    # 4. Run Optimization (Uncomment this block)
+    logger.info(f"Starting optimization with {optimizer.n_trials} trials...") # Uncomment this line
     try:
-        # Create a dummy trial object (requires Optuna)
-        study_temp = optuna.create_study(direction="maximize")
-        trial_temp = optuna.trial.Trial(study_temp, study_temp._storage.create_new_trial(study_temp._study_id))
+        study = optimizer.optimize() # Uncomment this line
 
-        # Call the objective function directly
-        result = objective(trial_temp, base_config, search_space)
-        logger.info(f"Single trial result: {result}")
+        logger.info("\n--- Optimization Finished ---")
+        logger.info(f"Study name: {study.study_name}")
+        logger.info(f"Number of finished trials: {len(study.trials)}")
+
+        best_trial = study.best_trial
+        logger.info(f"Best trial number: {best_trial.number}")
+        logger.info(f"Best value (Avg Reward): {best_trial.value:.4f}")
+        logger.info("Best parameters found:")
+        for key, value in best_trial.params.items():
+            logger.info(f"  {key}: {value}")
+
+        # You can add Optuna visualization calls here if desired
+        # e.g., optuna.visualization.plot_optimization_history(study).show()
+        # optuna.visualization.plot_param_importances(study).show()
+
     except Exception as e:
-        logger.error(f"Error running single trial: {e}", exc_info=True)
-    # --- End temporary code ---
+        logger.error(f"An error occurred during optimization: {e}", exc_info=True) # Uncomment this block
+
+    # --- Temporary code to just run one trial directly --- (Comment out or remove this block)
+    # logger.info("\n--- Running a single test trial ---")
+    # # Create a dummy trial object for testing the objective function directly
+    # dummy_study = optuna.create_study(direction="maximize")
+    # dummy_trial = optuna.trial.Trial(dummy_study, dummy_study.ask())
+    # # Manually set parameters for the dummy trial based on base_config's reward_shaping
+    # test_params = {}
+    # base_shaping = base_config.get("reward_shaping", {})
+    # for comp_name, params_def in search_space.items():
+    #     for param_name, _ in params_def.items():
+    #         optuna_param_name = f"{comp_name}_{param_name}"
+    #         # Get default from base_config if available, else use a fallback (e.g., midpoint)
+    #         default_value = base_shaping.get(comp_name, {}).get(param_name, 1.0) # Fallback to 1.0
+    #         test_params[optuna_param_name] = default_value
+    #             # Note: This manual setting bypasses Optuna's suggestion logic for the test run
+    #             # It uses the defaults from the YAML's reward_shaping section.
+
+    # # Inject the manually set parameters into the dummy trial
+    # dummy_study.add_trial(
+    #     optuna.trial.create_trial(
+    #         params=test_params,
+    #         distributions={ # Need to provide distributions matching search space for Optuna internals
+    #             f"{cn}_{pn}": optuna.distributions.FloatDistribution(pd["low"], pd["high"], log=pd.get("log", False))
+    #             if pd["type"] == "float" else optuna.distributions.IntDistribution(pd["low"], pd["high"], log=pd.get("log", False))
+    #             if pd["type"] == "int" else optuna.distributions.CategoricalDistribution(pd["choices"])
+    #             for cn, ps in search_space.items() for pn, pd in ps.items()
+    #         },
+    #         value=None # Value will be set by the objective function
+    #     )
+    # )
+    # # Get the actual trial object added to the study
+    # actual_dummy_trial = dummy_study.trials[-1]
+
+
+    # final_avg_reward = objective(actual_dummy_trial, base_config, search_space)
+    # logger.info(f"--- Finished single test trial | Final Avg Reward: {final_avg_reward:.3f} ---")
+    # logger.info(f"Best trial parameters (based on single run):")
+    # for key, value in actual_dummy_trial.params.items():
+    #      logger.info(f"  {key}: {value}")
+    # logger.info(f"Best trial value: {final_avg_reward:.3f}")
