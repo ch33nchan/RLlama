@@ -1,0 +1,44 @@
+# Base configuration for the Bayesian Optimization Demo using FrozenLake
+
+# Settings for the RewardComposer (can be overridden by optimizer if needed)
+composer_settings:
+  normalize: false # Keep it simple for this demo, don't normalize
+
+# Define the reward components we will always use
+reward_components:
+  goal:
+    class: goal_reward # Registered name for GoalReward
+    # Remove the entire 'params' section for goal
+    # params:
+    #   goal_state: 15
+  penalty_step:
+    class: step_penalty # Registered name for StepPenaltyReward
+    # Remove the entire 'params' section for penalty_step
+    # params:
+    #   pass
+  penalty_hole:
+    class: hole_penalty # Registered name for HolePenaltyReward
+    # Remove the entire 'params' section for penalty_hole
+    # params:
+    #   pass
+
+# Define the BASE reward shaping. The optimizer will TUNE parameters here.
+# We only include components we want the optimizer to potentially tune.
+# If a component from 'reward_components' is NOT listed here,
+# the optimizer assumes its weight is 1.0 and schedule is 'none'.
+reward_shaping:
+  # Goal reward: We might want to tune its initial weight.
+  # Let Optuna decide the initial weight. We provide a default structure.
+  goal_reward: # Matches GoalReward().name
+    initial_weight: 10.0 # Default, Optuna will override if in search space
+    decay_schedule: 'none' # Keep it simple, don't decay goal weight
+
+  # Step penalty: Tune its weight.
+  step_penalty: # Matches StepPenaltyReward().name
+    initial_weight: 1.0 # Default, Optuna will override
+    decay_schedule: 'none'
+
+  # Hole penalty: Tune its weight.
+  hole_penalty: # Matches HolePenaltyReward().name
+    initial_weight: 1.0 # Default, Optuna will override
+    decay_schedule: 'none'

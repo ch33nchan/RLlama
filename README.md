@@ -68,8 +68,8 @@ For developers wanting to understand the internals, the framework is built aroun
     *   **Design:** Provides crucial observability into the reward shaping process for debugging and analysis.
 
 7.  **`BayesianRewardOptimizer` (in `rllama.rewards.optimization`)**:
-    *   **Role (Planned):** High-level utility to automatically tune `RewardConfig` hyperparameters (initial weights, decay parameters) using Bayesian optimization techniques (e.g., with Optuna).
-    *   **Design:** Intended to abstract away the experimental loop needed for hyperparameter optimization of the reward shaping setup. (Currently a placeholder).
+    *   **Role:** High-level utility to automatically tune `RewardConfig` hyperparameters (initial weights, decay parameters, etc.) using Bayesian optimization (via Optuna).
+    *   **Design:** Takes a base configuration, a search space definition, and an objective function (which runs your RL training and returns a score). It runs multiple trials to find the reward shaping parameters that yield the best score according to your objective.
 
 **Interaction Flow:**
 

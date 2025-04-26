@@ -1,40 +1,74 @@
-from typing import Dict, Type, Any
+from typing import Type, Dict, Any, Optional
+import logging
 from .base import BaseReward
-from .common import GoalReward, StepPenaltyReward, ActionNoveltyReward
-# Import specific components if they are intended for general use
-# Or handle them via custom registration if they are example-specific
-# from examples.reward_integration_demo import FrozenLakeGoalReward, FrozenLakeHolePenalty # Avoid this tight coupling
 
-# Define a type hint for reward component classes
-RewardComponentClass = Type[BaseReward]
+logger = logging.getLogger(__name__)
 
-REWARD_REGISTRY: Dict[str, RewardComponentClass] = {
-    "goal": GoalReward,
-    "step_penalty": StepPenaltyReward,
-    "action_novelty": ActionNoveltyReward,
-    # We will define FrozenLake specific ones in the demo script for now,
-    # or you could move them to common.py if they are general enough.
-}
+class RewardRegistry:
+    """Singleton registry for reward components."""
+    _instance = None
+    _registry: Dict[str, Type[BaseReward]] = {}
 
-# Optional: Function to register custom components dynamically if needed
-def register_reward_component(name: str, component_class: RewardComponentClass):
-    """Registers a custom reward component class."""
-    if name in REWARD_REGISTRY:
-        print(f"Warning: Overwriting existing reward component in registry: {name}")
-    REWARD_REGISTRY[name] = component_class
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(RewardRegistry, cls).__new__(cls)
+            # Initialize registry dictionary only once
+            cls._registry = {}
+            # --- Auto-register common components ---
+            cls._instance._register_common()
+            # --------------------------------------
+        return cls._instance
 
-def create_reward_component(name: str, **kwargs: Any) -> BaseReward:
-    """
-    Instantiates a reward component from the registry using its name.
-    Passes keyword arguments to the component's __init__ method.
-    """
-    if name not in REWARD_REGISTRY:
-        # Consider searching in imported modules or raising a clearer error
-        raise ValueError(f"Unknown reward component name: '{name}'. Available: {list(REWARD_REGISTRY.keys())}")
+    def _register_common(self):
+        """Registers standard components included with the library."""
+        try:
+            # Import common components here to avoid circular dependencies at module level
+            from .common import StepPenaltyReward, GoalReward, HolePenaltyReward
 
-    component_class = REWARD_REGISTRY[name]
-    try:
-        # Instantiate the class with provided kwargs
-        return component_class(**kwargs)
-    except TypeError as e:
-        raise TypeError(f"Error initializing component '{name}' with args {kwargs}: {e}") from e
+            self.register("step_penalty", StepPenaltyReward)
+            self.register("goal_reward", GoalReward)
+            self.register("hole_penalty", HolePenaltyReward)
+            logger.info("Auto-registered common reward components: step_penalty, goal_reward, hole_penalty")
+        except ImportError as e:
+            logger.error(f"Could not auto-register common rewards: {e}")
+
+
+    def register(self, name: str, component_class: Type[BaseReward]):
+        """Registers a reward component class with a given name."""
+        if not issubclass(component_class, BaseReward):
+            raise TypeError(f"Class {component_class.__name__} must inherit from BaseReward.")
+        if name in self._registry:
+            logger.warning(f"Reward component '{name}' is already registered. Overwriting.")
+        self._registry[name] = component_class
+        logger.debug(f"Registered reward component: '{name}' -> {component_class.__name__}")
+
+    def get_class(self, name: str) -> Optional[Type[BaseReward]]:
+        """Gets the class associated with a registered name."""
+        return self._registry.get(name)
+
+    def create(self, name: str, params: Optional[Dict[str, Any]] = None) -> BaseReward:
+        """Creates an instance of a registered reward component."""
+        component_class = self.get_class(name)
+        if component_class is None:
+            raise ValueError(f"Reward component '{name}' not found in registry.")
+        try:
+            instance = component_class(**(params or {}))
+            return instance
+        except Exception as e:
+            logger.error(f"Failed to instantiate component '{name}' with params {params}: {e}")
+            raise
+
+# --- Global functions for convenience ---
+_registry_instance = RewardRegistry()
+
+def register_reward(name: str, component_class: Type[BaseReward]):
+    """Registers a reward component class globally."""
+    _registry_instance.register(name, component_class)
+
+def get_reward_component(name: str, params: Optional[Dict[str, Any]] = None) -> BaseReward:
+    """Creates an instance of a registered reward component globally."""
+    return _registry_instance.create(name, params)
+
+def get_reward_class(name: str) -> Optional[Type[BaseReward]]:
+    """Gets the class associated with a registered name globally."""
+    return _registry_instance.get_class(name)
