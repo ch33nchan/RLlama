@@ -19,6 +19,8 @@ bitsandbytes = ">=0.37.2"
 tqdm = "*"
 numpy = "*"
 # Removed the [tool.poetry.scripts] section
+pyyaml = "^6.0.2"
+optuna = "^4.3.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -59,7 +59,8 @@ class RewardRegistry:
             raise
 
 # --- Global functions for convenience ---
-_registry_instance = RewardRegistry()
+# Create a global instance of the registry for other modules to import
+reward_registry = RewardRegistry()
 
 def register_reward(name: str, component_class: Type[BaseReward]):
     """Registers a reward component class globally."""

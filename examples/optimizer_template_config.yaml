@@ -1,0 +1,51 @@
+# --- Template Configuration for Bayesian Reward Optimization ---
+# Description:
+# This is a template configuration file for use with optimizer_template.py.
+# Modify this file to define your reward components and the base parameters
+# you want the Bayesian optimizer (Optuna) to tune.
+#
+# Instructions:
+# 1. Replace placeholder components under 'reward_components' with your actual,
+#    registered reward component classes and any fixed parameters they need.
+# 2. Under 'reward_shaping', list the components whose parameters (like
+#    'initial_weight', 'decay_schedule', etc.) you want Optuna to tune.
+#    Provide sensible default values here; Optuna will override them based
+#    on the 'search_space' defined in the Python script.
+# 3. Ensure the keys under 'reward_shaping' match the internal names returned
+#    by your reward components' `name` property.
+
+# Settings for the RewardComposer (optional)
+composer_settings:
+  normalize: false # Example: Set to true if you want rewards normalized
+
+# Define the reward components your RL setup will always use.
+# <<< REPLACE these with your actual registered components >>>
+reward_components:
+  positive_reward: # An example name you might give your component instance
+    class: my_positive_reward # <<< The name your component is registered with
+    params: {} # <<< Add any fixed parameters your component needs here
+      # Example: goal_position: [10, 5]
+  negative_penalty: # Another example name
+    class: my_negative_penalty # <<< The name your component is registered with
+    params: {}
+      # Example: penalty_value: -0.5
+
+# Define the BASE reward shaping parameters. Optuna will TUNE these based on
+# the 'search_space' in the Python script.
+# Only include components here if you want Optuna to tune their parameters.
+# If a component from 'reward_components' is NOT listed here, the optimizer
+# assumes its weight is 1.0 and schedule is 'none' by default (unless overridden
+# by the component's internal defaults).
+# <<< MODIFY this section based on your components and tuning goals >>>
+reward_shaping:
+  # Example: Tuning the initial weight of the positive reward
+  my_positive_reward: # <<< MUST match the component's internal name (e.g., MyPositiveReward().name)
+    initial_weight: 1.0 # Default value, Optuna will override if in search space
+    decay_schedule: 'none' # Default, can be tuned if added to search space
+
+  # Example: Tuning the initial weight of the negative penalty
+  my_negative_penalty: # <<< MUST match the component's internal name
+    initial_weight: 1.0 # Default value, Optuna will override
+    decay_schedule: 'none'
+
+  # Add other components you want to tune here...

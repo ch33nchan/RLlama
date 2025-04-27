@@ -1,210 +1,211 @@
-# RLlama Reward Shaping Cookbook
+# RLlama Reward Shaping Cookbook (LLM RLF Focus)
 
-This guide explains how to use the `rllama.rewards` framework to design, combine, and dynamically shape reward signals for your Reinforcement Learning agents. It provides recipes for common reward shaping patterns.
+This guide provides practical recipes for using the `rllama.rewards` framework to engineer sophisticated reward signals for Reinforcement Learning Fine-tuning (RLF) of Large Language Models (LLMs).
 
 ## Core Concepts Recap
 
-*   **Reward Components (`BaseReward`)**: Building blocks representing single reward sources (goal, penalty, etc.). Inherit from `rllama.rewards.base.BaseReward`.
-*   **Reward Composer (`RewardComposer`)**: Calculates raw values from components and combines them using weights. Found in `rllama.rewards.composition`.
-*   **Reward Shaper (`RewardShaper` & `RewardConfig`)**: Manages dynamic weights based on schedules. Found in `rllama.rewards.shaping`.
-*   **Registry (`rllama.rewards.registry`)**: Maps string names to component classes for easy loading from configuration.
-*   **YAML Configuration**: Define components, composer settings, and shaping schedules declaratively.
+*   **Reward Components (`BaseReward`)**: Define individual reward sources. For LLMs, this includes preference scores, safety penalties, instruction adherence metrics, verbosity costs, etc. Implement by inheriting `rllama.rewards.base.BaseReward`.
+*   **Reward Composer (`RewardComposer`)**: Aggregates raw values from components and combines them using dynamic weights. Handles optional normalization. Found in `rllama.rewards.composition`.
+*   **Reward Shaper (`RewardShaper` & `RewardConfig`)**: Manages how component weights change over training steps (e.g., curriculum learning, fading penalties). Configured via YAML/Python. Found in `rllama.rewards.shaping`.
+*   **Registry (`rllama.rewards.registry`)**: Maps string names to component classes for loading from YAML.
+*   **YAML Configuration**: Declaratively define the entire reward strategy for reproducibility and experimentation.
 
 ---
 
-## Recipes & Techniques
+## LLM RLF Recipes & Techniques
 
-Here are some common patterns and advanced techniques you can implement using the framework:
+### Recipe 1: Combining Preference Scores with Constraint Penalties
 
-### Recipe 1: Curriculum Learning via Weight Scheduling
-
-*   **Goal:** Train an agent on a complex task by initially emphasizing simpler sub-goals and gradually increasing the weight of the main task reward.
-*   **Concept:** Use different decay/increase schedules for reward components. Start with a high weight for an "easy" reward (e.g., reaching an intermediate checkpoint) and a low weight for the "hard" final goal reward. Schedule the easy reward weight to decay while the hard reward weight increases or stays high.
+*   **Goal:** Fine-tune an LLM using a primary preference model score while penalizing constraint violations (e.g., toxicity, verbosity).
+*   **Concept:** Use one `BaseReward` component to pass through the score from your external preference model (often available in the `info` dict during PPO). Add other `BaseReward` components for penalties (e.g., a `ToxicityPenalty` checking the generated text, a `LengthPenalty` based on token count). Combine them using the `RewardComposer`.
 *   **Example (`reward_config.yaml`):**
     ```yaml
+    composer_settings:
+      normalize: false # Often preference scores are already somewhat scaled
+
     reward_components:
-      checkpoint:
-        class: CheckpointReward # Assumes custom reward registered
+      preference_score:
+        class: InfoValueReward # Generic component to extract a value from the info dict
         params:
-          target_region: [10, 10, 5, 5]
-      final_goal:
-        class: GoalReward # Assumes standard goal reward registered
+          info_key: "preference_score" # Key where the score is stored
+          default_value: 0.0
+      toxicity_penalty:
+        class: ToxicityPenalty # Assumes custom implementation registered
         params:
-          goal_key: "is_success"
-      step_penalty:
-        class: step_penalty # Common component, likely pre-registered
+          penalty_value: -2.0 # Applied if toxic content detected
+          toxicity_threshold: 0.9 # From a hypothetical toxicity classifier
+      length_penalty:
+        class: LengthPenalty # Assumes custom implementation registered
         params:
-          penalty: -0.01
+          max_length: 256
+          penalty_per_token: -0.01
 
     reward_shaping:
-      checkpoint_reward: # Name matches CheckpointReward().name
-        initial_weight: 5.0
-        decay_schedule: 'linear'
-        decay_steps: 50000 # Decay over 50k steps
+      preference_score:
+        initial_weight: 1.0 # Use preference score directly
+        decay_schedule: 'none'
+      toxicity_penalty:
+        initial_weight: 1.0 # Apply penalty fully
+        decay_schedule: 'none'
+      length_penalty:
+        initial_weight: 0.5 # Start with a moderate length penalty
+        decay_schedule: 'linear' # Gradually reduce penalty weight if needed
+        decay_steps: 10000
         min_weight: 0.1
-      goal_reward: # Name matches GoalReward().name
-        initial_weight: 10.0 # Keep final goal weight high
-        decay_schedule: 'none'
-      step_penalty: # Matches StepPenaltyReward().name
-        initial_weight: 1.0
-        decay_schedule: 'none'
     ```
-*   **Implementation Notes:** You might need to implement custom decay schedules (e.g., `linear_increase`) or add a `start_step` parameter to `RewardConfig` and `RewardShaper` for more complex curricula.
+*   **Implementation Notes:** The custom penalty components (`ToxicityPenalty`, `LengthPenalty`) need access to the generated `action` (response text/tokens) and potentially other `info` data within their `__call__` methods.
 
 ---
 
-### Recipe 2: Combining Intrinsic Curiosity with Extrinsic Rewards
+### Recipe 2: Curriculum Learning for Instruction Complexity
 
-*   **Goal:** Encourage exploration in sparse reward environments using an intrinsic motivation signal (like novelty) alongside the main task reward.
-*   **Concept:** Implement a reward component that measures state novelty (e.g., using a count-based approach, or prediction error from a learned model). Combine this intrinsic reward with the extrinsic task reward. The intrinsic reward's weight might be decayed over time.
+*   **Goal:** Train an LLM to follow increasingly complex instructions by adjusting reward weights over time.
+*   **Concept:** Start with high weight on rewards for following simple instructions (e.g., correct format) and low weight for complex reasoning rewards. Gradually decrease the simple instruction weight and increase the complex reasoning weight using the `RewardShaper`.
 *   **Example (`reward_config.yaml`):**
     ```yaml
+    # ... composer_settings ...
     reward_components:
-      novelty:
-        class: StateNoveltyReward # Assumes custom implementation registered
+      formatting_check:
+        class: FormattingReward # Checks if output matches required JSON/Markdown etc.
         params:
-          buffer_size: 10000
-          novelty_scale: 0.1
-      goal:
-        class: GoalReward
+          reward_value: 1.0
+      reasoning_quality:
+        class: ReasoningScoreReward # Extracts score based on complex task success
         params:
-          goal_key: "is_success"
+          info_key: "reasoning_eval_score"
+          default_value: 0.0
 
     reward_shaping:
-      state_novelty: # Matches StateNoveltyReward().name
-        initial_weight: 2.0
-        decay_schedule: 'exponential'
-        decay_rate: 0.9999 # Decay slowly
-        decay_steps: 1 # Decay happens per step for exponential
-        min_weight: 0.05
-      goal_reward: # Matches GoalReward().name
-        initial_weight: 10.0
-        decay_schedule: 'none'
+      formatting_check:
+        initial_weight: 5.0 # Emphasize basic formatting early
+        decay_schedule: 'linear'
+        decay_steps: 20000
+        min_weight: 0.5
+      reasoning_quality:
+        initial_weight: 1.0 # Start lower weight for complex task
+        decay_schedule: 'linear_increase' # Custom schedule needed, or use 'none' and start high later
+        decay_steps: 20000 # Increase over time
+        max_weight: 5.0 # Cap the weight
+        start_step: 5000 # Start increasing after 5k steps (requires adding start_step logic)
     ```
-*   **Implementation Notes:** The `StateNoveltyReward` component needs internal logic to track visited states or manage a predictive model.
+*   **Implementation Notes:** Requires implementing the specific reward components and potentially custom decay schedules in `rllama.rewards.shaping`.
 
 ---
 
-### Recipe 3: Normalizing Rewards with Different Scales
+### Recipe 3: Normalizing Diverse Reward Signals
 
-*   **Goal:** Combine reward components with very different scales (e.g., dense distance [-1, 0] vs. sparse goal +100) without unintended dominance.
-*   **Concept:** Enable normalization in the `RewardComposer`. It calculates running statistics (mean, std dev) for each raw reward component and scales them before applying weights.
+*   **Goal:** Combine signals with vastly different scales (e.g., preference score [-5, 5], toxicity penalty {0, -10}, length bonus [0, 1]) without one dominating.
+*   **Concept:** Enable normalization in `RewardComposer`. It computes running statistics (mean, std dev) for each *raw* component value and scales them (e.g., to zero mean, unit variance) before applying the weights defined in `reward_shaping`.
 *   **Example (`reward_config.yaml`):**
     ```yaml
     composer_settings:
       normalize: true # Enable normalization
-      norm_window: 5000 # Calculate stats over the last 5000 steps
-      norm_epsilon: 1e-8 # Prevent division by zero
+      norm_window: 1000 # Calculate stats over recent history
+      norm_epsilon: 1e-8 # Avoid division by zero
 
     reward_components:
-      distance:
-        class: DistanceToGoalReward # Assumes custom implementation registered
-        params:
-          scale: -1.0
-      goal:
-        class: GoalReward
-        params:
-          goal_key: "is_success"
-          reward_value: 100.0
+      # ... (preference_score, toxicity_penalty, etc.) ...
 
     reward_shaping:
-      distance_reward: # Matches DistanceToGoalReward().name
-        initial_weight: 1.0 # Weights now apply to normalized values
+      # Weights now apply to normalized signals, making them more comparable
+      preference_score:
+        initial_weight: 1.0
         decay_schedule: 'none'
-      goal_reward: # Matches GoalReward().name
-        initial_weight: 1.0 # Weights now apply to normalized values
+      toxicity_penalty:
+        initial_weight: 1.5 # Weight relative to preference score after normalization
         decay_schedule: 'none'
+      # ... other components ...
     ```
-*   **Considerations:** Normalization introduces non-stationarity. The `norm_window` is a key hyperparameter. Requires a warm-up period.
+*   **Considerations:** Normalization helps balance signals but introduces non-stationarity. Choose `norm_window` carefully. Requires a warm-up period for statistics to stabilize.
 
 ---
 
-### Recipe 4: Potential-Based Shaping (PBRS)
+### Recipe 4: Potential-Based Shaping for Smooth Guidance (Advanced)
 
-*   **Goal:** Add dense shaping rewards without changing the optimal policy of the underlying MDP.
-*   **Concept:** Define a potential function `Phi(s)`. The shaping reward `F` is `gamma * Phi(s') - Phi(s)`. This guarantees policy invariance. The final reward is `R_env + F`.
+*   **Goal:** Provide dense guidance towards a desired state (e.g., specific response characteristics) without altering the optimal policy defined by the primary reward (like the preference score).
+*   **Concept:** Define a potential function `Phi(state)` based on response properties (e.g., closeness to target length, embedding similarity to an ideal response). The shaping reward `F` is `gamma * Phi(next_state) - Phi(state)`. Add this `F` to the main reward signal.
 *   **Example (`reward_config.yaml`):**
     ```yaml
     reward_components:
-      environment:
-        class: EnvironmentReward # Component passing env_reward from info dict
+      base_reward:
+        class: InfoValueReward # The main preference score or env reward
         params:
-          reward_key: "env_reward"
-      pbrs:
-        class: PotentialBasedReward # Assumes custom implementation registered
+          info_key: "preference_score"
+      pbrs_guidance:
+        class: LLMPotentialBasedReward # Custom PBRS implementation for LLMs
         params:
-          potential_function: "inverse_distance" # Identifier for potential logic
-          gamma: 0.99 # Agent's discount factor
+          potential_function: "embedding_similarity" # Identifier for Phi logic
+          gamma: 0.99 # Agent's discount factor (from PPO config)
           potential_params:
-            target_pos: [10, 10]
+            target_embedding: [ ... ] # Embedding of an ideal response
 
     reward_shaping:
-      environment_reward: # Matches EnvironmentReward().name
-        initial_weight: 1.0 # Original reward weight is 1
+      base_reward:
+        initial_weight: 1.0
         decay_schedule: 'none'
-      potential_shaping: # Matches PotentialBasedReward().name
-        initial_weight: 1.0 # PBRS component weight is 1
+      pbrs_guidance:
+        initial_weight: 0.1 # PBRS is often scaled lower
         decay_schedule: 'none'
     ```
-*   **Implementation Notes:** `PotentialBasedReward` needs `gamma` and logic to compute `Phi(s)`. Ensure the original environment reward is also included.
+*   **Implementation Notes:** Requires a sophisticated `LLMPotentialBasedReward` component that computes `Phi` based on the LLM's output (`action`/`next_state`). Ensure the main reward (`base_reward`) is also included.
 
 ---
 
-### Recipe 5: Action Penalty
+### Recipe 5: Optimizing Reward Hyperparameters with Bayesian Optimization
 
-*   **Goal:** Discourage specific actions or high-magnitude continuous actions.
-*   **Concept:** Create a component returning a negative value based on the `action`.
-*   **Example (`reward_config.yaml`):**
+*   **Goal:** Automatically find the best `initial_weight`, `decay_rate`, `norm_window`, etc., for your reward components to maximize LLM alignment metrics (e.g., win rate against reference model, evaluation score on a benchmark).
+*   **Concept:** Use `rllama.rewards.optimization.BayesianRewardOptimizer` with Optuna. Define a search space over the parameters in your `reward_config.yaml` and an `objective` function that runs a PPO fine-tuning trial and returns the alignment metric.
+*   **Prerequisites:** Install Optuna (`pip install optuna`).
+*   **Example (`my_opt_config.yaml` - Base):**
     ```yaml
+    # Base config - parameters here might be overridden by Optuna
+    composer_settings:
+      normalize: true
+      norm_window: 1000
     reward_components:
-      goal:
-        class: GoalReward
-        params:
-          goal_key: "is_success"
-      action_cost:
-        class: ActionMagnitudePenalty # Assumes custom implementation registered
-        params:
-          penalty_scale: 0.001
-
+      # ... (preference_score, toxicity_penalty, etc.) ...
     reward_shaping:
-      goal_reward:
+      preference_score:
         initial_weight: 1.0
-        decay_schedule: 'none'
-      action_penalty: # Matches ActionMagnitudePenalty().name
+      toxicity_penalty:
         initial_weight: 1.0
-        decay_schedule: 'none'
+      # ...
     ```
-*   **Implementation Notes:** Component's `__call__` uses the `action` argument (e.g., `-penalty_scale * ||action||^2`).
+*   **Example (`run_optimization.py` - Snippets):**
+    ```python
+    # --- Define Search Space ---
+    search_space = {
+        "composer_settings": { # Can tune composer settings too
+            "norm_window": {"type": "int", "low": 500, "high": 5000}
+        },
+        "reward_shaping": { # Target shaping parameters
+            "preference_score": {
+                "initial_weight": {"type": "float", "low": 0.5, "high": 2.0}
+            },
+            "toxicity_penalty": {
+                "initial_weight": {"type": "float", "low": 0.1, "high": 5.0, "log": True}
+            },
+            # ... other components/parameters to tune ...
+        }
+    }
+
+    # --- Implement Objective Function ---
+    # def objective(trial: optuna.Trial, base_config: Dict, search_space: Dict) -> float:
+    #     # 1. Get suggested config from trial (optimizer handles this)
+    #     # 2. Setup PPO Trainer (TRL) and RLlama Composer/Shaper with suggested config
+    #     # 3. Run PPO fine-tuning for a fixed number of steps/epochs
+    #     # 4. Evaluate the fine-tuned model (e.g., win rate, benchmark score)
+    #     # 5. Return the evaluation metric (higher is better for 'maximize')
+    #     # Use template: examples/optimizer_template.py
+
+    # --- Run Optimizer ---
+    # optimizer = BayesianRewardOptimizer(...)
+    # study = optimizer.optimize()
+    # print(f"Best trial: {study.best_trial.value}")
+    # print(f"Best params: {study.best_params}")
+    ```
+*   **Execution & Analysis:** Run the script. Analyze Optuna results (best parameters, parameter importance) using logs or `optuna-dashboard`.
 
 ---
 
-### Recipe 6: Survival Bonus
-
-*   **Goal:** Encourage longevity when the main goal is sparse.
-*   **Concept:** Provide a small, constant positive reward for each non-terminal step.
-*   **Example (`reward_config.yaml`):**
-    ```yaml
-    reward_components:
-      goal:
-        class: GoalReward
-        params:
-          goal_key: "is_success"
-          reward_value: 100.0
-      survival:
-        class: SurvivalBonusReward # Assumes custom implementation registered
-        params:
-          bonus_per_step: 0.01
-
-    reward_shaping:
-      goal_reward:
-        initial_weight: 1.0
-        decay_schedule: 'none'
-      survival_bonus: # Matches SurvivalBonusReward().name
-        initial_weight: 1.0
-        decay_schedule: 'none'
-    ```
-*   **Implementation Notes:** Component's `__call__` returns `bonus_per_step`.
-
----
-
-*Find more examples and integration details in the main [README.md](../../README.md) and the example scripts.*
+*Refer to the main [README.md](../../README.md) for core component details and integration examples.*
