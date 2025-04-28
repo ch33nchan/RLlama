@@ -95,19 +95,19 @@ This guide provides practical recipes for using the `rllama.rewards` framework t
 ### Recipe 3: Normalizing Diverse Reward Signals
 
 *   **Goal:** Combine signals with vastly different scales (e.g., preference score [-5, 5], toxicity penalty {0, -10}, length bonus [0, 1]) without one dominating.
-*   **Concept:** Enable normalization in `RewardComposer`. It computes running statistics (mean, std dev) for each *raw* component value and scales them (e.g., to zero mean, unit variance) before applying the weights defined in `reward_shaping`.
+*   **Concept:** Specify a `normalization_strategy` (e.g., `'z_score'`, `'min_max'`) in the `composer_settings` section of your YAML config. The `RewardComposer` will then attempt to normalize the raw component values before applying the weights defined in `reward_shaping`. *(Note: Normalization implementation is currently pending, setting a strategy will log a warning)*. If set to `None` or omitted, no normalization occurs.
 *   **Example (`reward_config.yaml`):**
     ```yaml
     composer_settings:
-      normalize: true # Enable normalization
-      norm_window: 1000 # Calculate stats over recent history
-      norm_epsilon: 1e-8 # Avoid division by zero
+      normalization_strategy: 'z_score' # Options: 'z_score', 'min_max', null (or omit for None)
+      # norm_window: 1000 # Parameters like window/epsilon would be needed for actual implementation
+      # norm_epsilon: 1e-8
 
     reward_components:
       # ... (preference_score, toxicity_penalty, etc.) ...
 
     reward_shaping:
-      # Weights now apply to normalized signals, making them more comparable
+      # Weights now apply to normalized signals (once implemented), making them more comparable
       preference_score:
         initial_weight: 1.0
         decay_schedule: 'none'
@@ -116,7 +116,7 @@ This guide provides practical recipes for using the `rllama.rewards` framework t
         decay_schedule: 'none'
       # ... other components ...
     ```
-*   **Considerations:** Normalization helps balance signals but introduces non-stationarity. Choose `norm_window` carefully. Requires a warm-up period for statistics to stabilize.
+*   **Considerations:** Normalization helps balance signals but introduces non-stationarity. Implementation details like window size (`norm_window`) and epsilon (`norm_epsilon`) would be important. Requires a warm-up period for statistics to stabilize.
 
 ---
 
@@ -153,15 +153,15 @@ This guide provides practical recipes for using the `rllama.rewards` framework t
 
 ### Recipe 5: Optimizing Reward Hyperparameters with Bayesian Optimization
 
-*   **Goal:** Automatically find the best `initial_weight`, `decay_rate`, `norm_window`, etc., for your reward components to maximize LLM alignment metrics (e.g., win rate against reference model, evaluation score on a benchmark).
+*   **Goal:** Automatically find the best `initial_weight`, `decay_rate`, `normalization_strategy`, etc., for your reward components to maximize LLM alignment metrics (e.g., win rate against reference model, evaluation score on a benchmark).
 *   **Concept:** Use `rllama.rewards.optimization.BayesianRewardOptimizer` with Optuna. Define a search space over the parameters in your `reward_config.yaml` and an `objective` function that runs a PPO fine-tuning trial and returns the alignment metric.
 *   **Prerequisites:** Install Optuna (`pip install optuna`).
 *   **Example (`my_opt_config.yaml` - Base):**
     ```yaml
     # Base config - parameters here might be overridden by Optuna
     composer_settings:
-      normalize: true
-      norm_window: 1000
+      normalization_strategy: null # Optuna can choose this
+      # norm_window: 1000 # Could also be tuned if implemented
     reward_components:
       # ... (preference_score, toxicity_penalty, etc.) ...
     reward_shaping:
@@ -176,7 +176,8 @@ This guide provides practical recipes for using the `rllama.rewards` framework t
     # --- Define Search Space ---
     search_space = {
         "composer_settings": { # Can tune composer settings too
-            "norm_window": {"type": "int", "low": 500, "high": 5000}
+            "normalization_strategy": {"type": "categorical", "choices": [None, "z_score", "min_max"]} # Tune strategy
+            # "norm_window": {"type": "int", "low": 500, "high": 5000} # If implemented
         },
         "reward_shaping": { # Target shaping parameters
             "preference_score": {

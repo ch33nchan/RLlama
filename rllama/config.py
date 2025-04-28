@@ -156,25 +156,25 @@ reward_shaping:
         f.write(dummy_yaml_content)
 
     # --- Mock necessary classes/registry for standalone testing ---
-    class MockBaseReward(BaseReward):
-        def __init__(self, name: str, **kwargs):
-            # super().__init__(name) # Temporarily comment out super init
-            self._name = name # Set name directly in the mock
-            self.params = kwargs
+    # We still need mocks for the base classes and potentially others
+    # if the real ones have complex dependencies not met here.
 
-        @property # Explicitly define the property in the mock
-        def name(self) -> str:
-             return self._name
+    # Import the real classes to ensure they are registered IF NOT ALREADY IMPORTED
+    # (The import in rllama.rewards.__init__ should handle this if config.py imports from rllama.rewards)
+    try:
+        from .rewards.specific_rewards import ToxicityPenalty, PreferenceScoreReward
+        print("Successfully imported real reward components for registration check.")
+    except ImportError:
+        print("Could not import real reward components directly, assuming registry is populated elsewhere.")
+        # If imports fail here, rely on the __init__.py import mechanism
 
-        def __call__(self, state, action, next_state, info) -> float:
-            print(f"Called mock reward: {self.name} with params {self.params}")
-            return 0.0 # Dummy value
-
+    # Mocks for classes NOT being tested directly
     class MockRewardConfig(RewardConfig):
          def __init__(self, initial_weight: float = 1.0, schedule_type: str = 'constant', **kwargs):
              self.initial_weight = initial_weight
              self.schedule_type = schedule_type
              self.params = kwargs
+             print(f"Initialized MockRewardConfig with initial_weight={initial_weight}, schedule_type='{schedule_type}'") # Debug print
          def calculate_weight(self, global_step: int) -> float:
              return self.initial_weight # Dummy calculation
 
@@ -182,6 +182,7 @@ reward_shaping:
         def __init__(self, reward_configs: Dict[str, RewardConfig]):
             self._configs = reward_configs
             self._weights = {name: cfg.initial_weight for name, cfg in reward_configs.items()}
+            print(f"Initialized MockRewardShaper with configs for: {list(reward_configs.keys())}") # Debug print
         def update_weights(self, global_step: int): pass # No-op for mock
         def get_weights(self) -> Dict[str, float]: return self._weights
 
@@ -189,33 +190,64 @@ reward_shaping:
         def __init__(self, reward_components: List[BaseReward], normalization_strategy: str = None):
             self.components = reward_components
             self.norm_strat = normalization_strategy
-        def compute_rewards(self, state, action, next_state, info) -> Dict[str, float]: return {c.name: c(state, action, next_state, info) for c in self.components}
-        def combine_rewards(self, raw_rewards: Dict[str, float], weights: Dict[str, float]) -> float: return sum(raw_rewards.get(name, 0.0) * weights.get(name, 0.0) for name in weights)
+            print(f"Initialized MockRewardComposer with components: {[c.name for c in components]}") # Debug print
+        def compute_rewards(self, state, action, next_state, info) -> Dict[str, float]:
+            print(f"MockRewardComposer computing rewards with info: {info}") # Debug print
+            return {c.name: c(state, action, next_state, info) for c in self.components}
+        def combine_rewards(self, raw_rewards: Dict[str, float], weights: Dict[str, float]) -> float:
+            print(f"MockRewardComposer combining rewards: {raw_rewards} with weights: {weights}") # Debug print
+            return sum(raw_rewards.get(name, 0.0) * weights.get(name, 0.0) for name in weights)
 
-    # Replace real classes with mocks for testing this script directly
-    RewardComposer = MockRewardComposer
-    RewardShaper = MockRewardShaper
-    RewardConfig = MockRewardConfig
-    BaseReward = MockBaseReward # Base class for type hints
+    # Replace only the classes we AREN'T testing the instantiation of
+    # RewardComposer = MockRewardComposer # Keep real RewardComposer if its init is simple
+    RewardShaper = MockRewardShaper     # Keep real RewardShaper if its init is simple
+    RewardConfig = MockRewardConfig   # Use MockRewardConfig as the real one might have complex logic
 
-    # Mock the registry
-    reward_registry.register("PreferenceScoreReward", MockBaseReward)
-    reward_registry.register("ToxicityPenalty", MockBaseReward)
-    # --- End Mocking ---
+    # --- Ensure registry has the REAL classes (the decorator should handle this) ---
+    # Remove the explicit mock registrations for the classes we implemented:
+    # reward_registry.register("PreferenceScoreReward", MockBaseReward) # REMOVE/COMMENT OUT
+    # reward_registry.register("ToxicityPenalty", MockBaseReward)       # REMOVE/COMMENT OUT
+    print("\nRegistry content check:")
+    print(reward_registry._registry) # Print registry content for debugging
+    # --- End Mocking Adjustments ---
 
     try:
-        print(f"Attempting to load config from: {dummy_path}")
+        print(f"\nAttempting to load config from: {dummy_path} using potentially real components")
+        # We expect load_config_from_yaml to use the REAL registered classes now
         composer, shaper = load_config_from_yaml(dummy_path)
+
         print("\n--- Loaded Objects ---")
-        print("Composer:", composer)
-        print("Shaper:", shaper)
+        print("Composer Type:", type(composer))
+        print("Shaper Type:", type(shaper))
+        if hasattr(composer, 'components'):
+             print("Composer Components:", [(c.name, type(c)) for c in composer.components])
+        if hasattr(shaper, '_configs'): # Accessing protected member for debug
+             print("Shaper Configs:", [(name, type(cfg)) for name, cfg in shaper._configs.items()])
+
+
         print("\n--- Testing Usage ---")
-        weights = shaper.get_weights()
+        weights = shaper.get_weights() # Should use MockRewardShaper.get_weights
         print("Initial Weights:", weights)
-        raw = composer.compute_rewards(None, "test action", None, {})
+
+        # Provide necessary info for the real ToxicityPenalty component
+        test_info = {'toxicity_score': 0.95} # Example score above threshold
+        print(f"Calling composer.compute_rewards with info: {test_info}")
+        raw = composer.compute_rewards(None, "test action", None, test_info)
         print("Raw Rewards:", raw)
+
         final = composer.combine_rewards(raw, weights)
         print("Final Reward:", final)
 
+        # Test case where toxicity is below threshold
+        test_info_low_toxicity = {'toxicity_score': 0.5}
+        print(f"\nCalling composer.compute_rewards with info: {test_info_low_toxicity}")
+        raw_low_toxicity = composer.compute_rewards(None, "test action", None, test_info_low_toxicity)
+        print("Raw Rewards (Low Toxicity):", raw_low_toxicity)
+        final_low_toxicity = composer.combine_rewards(raw_low_toxicity, weights)
+        print("Final Reward (Low Toxicity):", final_low_toxicity)
+
+
     except (ValueError, FileNotFoundError, KeyError, TypeError) as e: # Added TypeError
-        print(f"\nError loading configuration: {e}")
+        print(f"\nError loading or testing configuration: {e}")
+        import traceback
+        traceback.print_exc() # Print full traceback for errors

@@ -1,23 +1,20 @@
-# Existing imports
+# Import core classes for easier access
 from .base import BaseReward
-from .common import StepPenaltyReward, GoalReward, HolePenaltyReward # Add HolePenaltyReward
 from .composition import RewardComposer
+# Remove ScheduleType from this import
 from .shaping import RewardShaper, RewardConfig
-from .registry import RewardRegistry, register_reward, get_reward_component
-#from .dashboard import RewardDashboard
-from .optimization import BayesianRewardOptimizer
+from .registry import reward_registry
+
+# Import specific reward implementations to ensure they are registered
+from . import specific_rewards # Add this line
 
 __all__ = [
     "BaseReward",
-    "StepPenaltyReward",
-    "GoalReward",
-    "HolePenaltyReward", # Add to __all__
     "RewardComposer",
     "RewardShaper",
     "RewardConfig",
-    "RewardRegistry",
-    "register_reward",
-    "get_reward_component",
-    "RewardDashboard",
-    "BayesianRewardOptimizer",
+    # Remove ScheduleType from __all__ list
+    "reward_registry",
+    # Add specific reward class names here if you want them directly accessible, e.g.
+    # "ToxicityPenalty",
 ]

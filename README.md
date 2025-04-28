@@ -47,7 +47,7 @@ RLlama's architecture enables this systematic approach:
     *   **Cookbook Link:** See [Cookbook](docs/reward_cookbook.md) Recipe 1 for combining components.
 
 2.  **`RewardComposer` (`rllama.rewards.composition`)**:
-    *   **Purpose:** Aggregates `BaseReward` instances based on YAML config. Calculates raw values and combines them using current weights from the `RewardShaper`. Handles normalization.
+    *   **Purpose:** Aggregates `BaseReward` instances based on YAML config. Calculates raw values and combines them using current weights from the `RewardShaper`. Handles optional normalization via the `normalization_strategy` parameter (`'min_max'`, `'z_score'`, or `None`). Defaults to `None` (no normalization). *(Note: Normalization implementation is currently pending)*.
     *   **Benefit:** Decouples *what* rewards exist from *how* they are combined.
     *   **Cookbook Link:** See [Normalization Recipe (Recipe 3)](docs/reward_cookbook.md#recipe-3-normalizing-diverse-reward-signals).
 
@@ -160,7 +160,7 @@ reward_config_path = '/Users/cheencheen/Desktop/git/rl/RLlama/examples/configs/m
 ## Key Components
 
 *   **`BaseReward` (`rllama.rewards.base`):** The building block. Inherit from this to create custom reward logic (e.g., `ToxicityPenalty`, `InstructionFollowingScore`). Must implement `name` property and `__call__`. The `__call__` method receives data relevant to the LLM's generation (query, response, context, potentially base reward model scores) via its arguments (often packed into the `info` dict).
-*   **`RewardComposer` (`rllama.rewards.composition`):** Aggregates `BaseReward` instances. Calculates raw values from each component (`compute_rewards`) and combines them using weights (`combine_rewards`). Supports normalization.
+*   **`RewardComposer` (`rllama.rewards.composition`):** Aggregates `BaseReward` instances. Calculates raw values from each component (`compute_rewards`) and combines them using weights (`combine_rewards`). Supports optional normalization strategies (`'min_max'`, `'z_score'`, `None`) specified during initialization or via YAML (`composer_settings.normalization_strategy`). *(Note: Normalization implementation is currently pending)*.
 *   **`RewardConfig` / `RewardShaper` (`rllama.rewards.shaping`):** Define how the weight (influence) of each `BaseReward` component changes over the training steps (e.g., linear decay, exponential increase). Configured via YAML or Python.
 *   **YAML Configuration:** Centralizes the definition of components, their parameters, composition strategy (normalization), and dynamic shaping schedules. Enables easy experimentation.
 *   **`BayesianRewardOptimizer` (`rllama.rewards.optimization`):** Uses Optuna to find optimal `initial_weight`, `decay_rate`, etc., in your `reward_shaping` config by running multiple training trials.
