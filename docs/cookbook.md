@@ -1,167 +1,251 @@
-# ... (existing content) ...
 
-## Recipe: Optimizing Reward Shaping with Bayesian Optimization
 
-Finding the right weights and decay schedules for reward components can be time-consuming. RLlama's `BayesianRewardOptimizer` leverages Optuna to automate this process.
 
-**Goal:** Automatically tune reward shaping parameters (like `initial_weight`) to maximize agent performance.
+          
+Alright, let's create the content for the `docs/cookbook.md` file. This will contain practical examples and recipes for common reward engineering tasks using RLlama.
 
-**Steps:**
+Here's the proposed content for the new file:
 
-1.  **Prerequisites:**
-    *   Install Optuna: `pip install optuna`
-    *   (Optional, for visualization) Install Plotly: `pip install plotly`
-    *   Have your custom reward components defined and registered.
+```markdown:/Users/cheencheen/Desktop/git/rl/RLlama/docs/cookbook.md
+# RLlama Cookbook: Practical Recipes
 
-2.  **Create Configuration (`my_opt_config.yaml`):**
-    Define the components and the base shaping parameters you want to tune.
+This cookbook provides practical examples and patterns for implementing common reward engineering techniques using RLlama.
 
-    ```yaml
-    # my_opt_config.yaml
-    composer_settings:
-      normalize: false
+## Recipe 1: Basic Goal Reward + Step Penalty
 
-    reward_components:
-      my_goal_reward:
-        class: MyRegisteredGoalReward # Your component class name
-        params: { goal_value: 100 }
-      my_step_penalty:
-        class: MyRegisteredStepPenalty
-        params: { penalty: -0.1 }
+This is the most common starting point. Reward the agent for reaching a goal and penalize it slightly for each step taken.
 
-    reward_shaping:
-      # We want Optuna to tune these weights
-      MyRegisteredGoalReward: # Match component's .name property
-        initial_weight: 10.0 # Default, Optuna overrides
-        decay_schedule: 'none'
-      MyRegisteredStepPenalty: # Match component's .name property
-        initial_weight: 1.0 # Default, Optuna overrides
-        decay_schedule: 'none'
-    ```
+**Components:**
 
-3.  **Create Optimization Script (`run_optimization.py`):**
-    Use `examples/optimizer_template.py` as a starting point and modify it:
+*   `GoalReward`: Provides a positive reward when a goal condition is met (e.g., `info['is_success'] == True`).
+*   `StepPenalty`: Provides a small negative reward for every step.
 
-    ```python
-    # run_optimization.py (Simplified structure based on template)
-    import gymnasium as gym
-    import numpy as np
-    import yaml
-    import optuna
-    import os
-    import logging
-    from rllama.rewards import BayesianRewardOptimizer, RewardComposer, RewardShaper, RewardConfig, get_reward_component
-    # from my_components import MyRegisteredGoalReward, MyRegisteredStepPenalty # Import yours
+**Configuration (`config.yaml`):**
 
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+```yaml
+reward_shaping:
+  goal:
+    class: GoalReward
+    params: { reward_value: 1.0 } # Or any positive value
+    weight_schedule: { initial_weight: 1.0, schedule_type: constant }
+  time_cost:
+    class: StepPenalty
+    params: { penalty: -0.01 } # Small negative value
+    weight_schedule: { initial_weight: 1.0, schedule_type: constant }
+```
 
-    # <<< Define Your Agent >>>
-    class YourAgent: # ... (Implement your agent) ...
-        def __init__(self, state_size, action_size): pass
-        def select_action(self, state): return 0 # Placeholder
-        def learn(self, s, a, r, ns, d, i): pass # Placeholder
+**Implementation Notes:**
 
-    # <<< Implement Your Objective Function >>>
-    def objective(trial: optuna.Trial, base_config: Dict, search_space: Dict) -> float:
-        logger.info(f"--- Trial {trial.number} ---")
-        current_config = base_config.copy() # Optimizer wrapper handles sampling
-        current_shaping = current_config.setdefault("reward_shaping", {})
-        # Populate current_shaping based on trial.params (as in template)
-        # ... (Logic as in optimizer_template.py objective function) ...
+*   Ensure your environment's `info` dictionary contains a boolean flag (like `is_success`) that `GoalReward` can check. You might need to subclass `GoalReward` if your condition is different.
+*   Adjust `reward_value` and `penalty` based on the expected episode length and desired behavior.
 
-        # --- Setup Env, Agent, RLlama (as in template) ---
+## Recipe 2: Sparse Reward with Potential-Based Shaping (Distance Reward)
+
+In environments with sparse rewards (e.g., only getting a reward at the very end), potential-based reward shaping can provide denser guidance. Rewarding based on distance reduction is a common form.
+
+**Components:**
+
+*   `GoalReward`: For the final success signal.
+*   `DistanceReward` (Custom): Calculates reward based on the change in distance to the goal.
+
+**Custom Component (`distance_reward.py`):**
+
+```python
+import numpy as np
+from rllama.rewards import RewardComponent
+
+class DistanceReward(RewardComponent):
+    def __init__(self, potential_scale: float = 1.0, gamma: float = 0.99):
+        self.potential_scale = potential_scale
+        self.gamma = gamma # Discount factor of the RL algorithm
+        self.previous_potential = None
+
+    def _calculate_potential(self, info: dict) -> float:
+        """Calculates potential based on distance. Lower distance = higher potential."""
+        agent_pos = info.get("agent_pos")
+        target_pos = info.get("target_pos")
+        if agent_pos is None or target_pos is None:
+            return 0.0 # Or some default potential
+
+        distance = np.linalg.norm(np.array(agent_pos) - np.array(target_pos))
+        # Example potential: negative distance (closer is better/less negative)
+        # Scale it to prevent overpowering other rewards
+        potential = -distance * self.potential_scale
+        return potential
+
+    def calculate_reward(self, raw_reward: float, info: dict, context: dict, **kwargs) -> float:
+        current_potential = self._calculate_potential(info)
+
+        shaping_reward = 0.0
+        if self.previous_potential is not None:
+            # Potential-based shaping formula: gamma * P(s') - P(s)
+            shaping_reward = self.gamma * current_potential - self.previous_potential
+
+        # Update previous potential for next step
+        # Reset if episode ended (check context)
+        terminated = context.get("terminated", False)
+        truncated = context.get("truncated", False)
+        if terminated or truncated:
+            self.previous_potential = None # Reset for next episode start
+        else:
+            self.previous_potential = current_potential
+
+        # This component ONLY provides the shaping term
+        return shaping_reward
+
+    # Optional: Add a reset method if needed outside of context checks
+    # def reset(self):
+    #    self.previous_potential = None
+```
+
+**Configuration (`config.yaml`):**
+
+```yaml
+reward_shaping:
+  goal:
+    class: GoalReward
+    params: { reward_value: 1.0 }
+    weight_schedule: { initial_weight: 1.0, schedule_type: constant }
+  distance_shaping:
+    class: DistanceReward # Your custom class
+    params: { potential_scale: 0.1, gamma: 0.99 } # Adjust scale and gamma
+    weight_schedule: { initial_weight: 1.0, schedule_type: constant }
+```
+
+**Implementation Notes:**
+
+*   Requires `agent_pos` and `target_pos` (or similar) in the `info` dictionary.
+*   The `gamma` parameter in the component should match the discount factor used by your RL agent for the theoretical guarantees of potential-based shaping to hold.
+*   The `potential_scale` needs tuning; too high, and the agent might exploit the shaping term; too low, and it won't provide enough guidance.
+*   Remember to pass `terminated` and `truncated` flags in the `context` dictionary when calling `shaper.shape`.
+
+## Recipe 3: Curriculum Learning via Weight Scheduling
+
+Gradually introduce or fade out reward components to guide the agent through different learning stages.
+
+**Scenario:** Initially, strongly penalize collisions. As the agent learns to avoid them, reduce the penalty's weight and increase the weight of an efficiency reward (e.g., reaching the goal faster).
+
+**Components:**
+
+*   `GoalReward`
+*   `CollisionPenalty` (Custom or built-in)
+*   `EfficiencyBonus` (Custom, e.g., `1 / steps_in_episode` if goal reached)
+
+**Configuration (`config.yaml`):**
+
+```yaml
+reward_shaping:
+  goal:
+    class: GoalReward
+    params: { reward_value: 1.0 }
+    weight_schedule: { initial_weight: 1.0, schedule_type: constant }
+  safety:
+    class: CollisionPenalty
+    params: { penalty: -5.0 } # High initial penalty
+    weight_schedule:
+      initial_weight: 1.0
+      schedule_type: exponential # Or linear
+      decay_rate: 0.9999 # Slowly decrease weight
+      decay_steps: 100 # Apply decay every 100 global steps
+      min_weight: 0.1 # Maintain a small penalty
+  speed:
+    class: EfficiencyBonus
+    params: { max_bonus: 0.5 }
+    weight_schedule:
+      initial_weight: 0.0 # Start with no efficiency bonus
+      schedule_type: linear # Gradually increase weight
+      end_weight: 1.0 # Target weight
+      # Need start_step and duration for linear schedule (assuming shaper supports this)
+      schedule_start_step: 10000 # Start increasing after 10k steps
+      schedule_duration_steps: 50000 # Reach full weight over 50k steps
+      # OR use exponential increase if preferred/supported
+      # schedule_type: exponential
+      # decay_rate: 1.0001 # Increase rate (use > 1)
+      # decay_steps: 100
+      # max_weight: 1.0
+```
+
+**Implementation Notes:**
+
+*   Requires `CollisionPenalty` and `EfficiencyBonus` components to be defined.
+*   The `RewardShaper` needs to support the specified `schedule_type` (e.g., `linear`, `exponential` increase/decrease). You might need to extend the shaper's scheduling logic if only constant and exponential decay are built-in.
+*   Tune the schedule parameters (`decay_rate`, `decay_steps`, `min_weight`, `end_weight`, `schedule_start_step`, `schedule_duration_steps`) carefully based on the expected total training steps.
+*   Remember to call `shaper.update_weights(global_step)` consistently in your training loop.
+
+## Recipe 4: Using Context for State-Dependent Rewards
+
+Modify rewards based on information not directly available in the environment's `info` dict, passed via the `context`.
+
+**Scenario:** Give a bonus for exploration (visiting new states) only during the first half of training.
+
+**Components:**
+
+*   `ExplorationBonus` (Custom): Rewards visiting less frequent states.
+*   Other components (GoalReward, StepPenalty, etc.)
+
+**Custom Component (`exploration_bonus.py`):**
+
+```python
+from rllama.rewards import RewardComponent
+from collections import defaultdict
+
+class ExplorationBonus(RewardComponent):
+    def __init__(self, bonus_scale: float = 0.01, max_training_steps: int = 1000000):
+        self.bonus_scale = bonus_scale
+        self.max_training_steps = max_training_steps
+        self.state_visit_counts = defaultdict(int)
+
+    def calculate_reward(self, raw_reward: float, info: dict, context: dict, **kwargs) -> float:
+        global_step = context.get("global_step", 0)
+
+        # Only apply bonus during the first half of training
+        if global_step > self.max_training_steps / 2:
+            return 0.0
+
+        # Requires current state representation in context or info
+        current_state = context.get("agent_state_representation")
+        if current_state is None:
+             # Try getting from info if available, otherwise cannot compute
+             current_state = info.get("agent_state_representation")
+             if current_state is None: return 0.0
+
+        # Simple count-based exploration bonus: 1 / sqrt(count)
+        # Needs a hashable state representation
         try:
-            # env = gym.make("YourEnv-vX") # Your environment
-            env = gym.make("CartPole-v1") # Example
-            state_size = env.observation_space.shape[0]
-            action_size = env.action_space.n
-            agent = YourAgent(state_size, action_size)
+            count = self.state_visit_counts[current_state]
+            bonus = self.bonus_scale / np.sqrt(count + 1) # Add 1 to avoid division by zero
+            self.state_visit_counts[current_state] += 1
+            return bonus
+        except TypeError: # State is not hashable (e.g., numpy array)
+             print("Warning: State representation is not hashable for ExplorationBonus.")
+             # Implement alternative state tracking if needed (e.g., discretization, hashing)
+             return 0.0
 
-            # Setup RLlama Composer/Shaper using current_config
-            # ... (Logic as in optimizer_template.py objective function) ...
-            reward_components_config = current_config.get('reward_components', {})
-            # ... create components, composer, shaper ...
-            composer = RewardComposer(...) # Placeholder
-            shaper = RewardShaper(...) # Placeholder
+    # Optional: Reset counts if needed between runs or phases
+    # def reset_counts(self):
+    #    self.state_visit_counts.clear()
+```
 
-        except Exception as e:
-            logger.error(f"Setup failed: {e}", exc_info=True)
-            return -float('inf')
+**Configuration (`config.yaml`):**
 
-        # --- Run RL Loop (as in template) ---
-        total_rewards = []
-        num_episodes = 50 # Adjust as needed
-        for episode in range(num_episodes):
-            # ... (Your RL episode loop using agent, env, composer, shaper) ...
-            # state, info = env.reset()
-            # episode_reward = 0
-            # done = False
-            # step = 0
-            # while not done:
-            #    action = agent.select_action(state)
-            #    next_state, base_reward, term, trunc, info = env.step(action)
-            #    done = term or trunc
-            #    shaped_reward = composer.calculate_reward(...)
-            #    shaped_reward = shaper.shape_reward(shaped_reward, step)
-            #    agent.learn(state, action, shaped_reward, next_state, done, info)
-            #    state = next_state
-            #    episode_reward += base_reward # Or shaped_reward
-            #    step += 1
-            # total_rewards.append(episode_reward)
-            total_rewards.append(np.random.rand() * 10) # Placeholder reward
+```yaml
+reward_shaping:
+  # ... other components like goal, penalty ...
+  explore:
+    class: ExplorationBonus
+    params: { bonus_scale: 0.01, max_training_steps: 1000000 } # Match total steps
+    weight_schedule: { initial_weight: 1.0, schedule_type: constant } # Control via logic inside component
+```
 
-        env.close()
+**Implementation Notes:**
 
-        # --- Return Performance Metric ---
-        metric = np.mean(total_rewards[-10:]) # Example: Avg reward last 10 episodes
-        logger.info(f"--- Trial {trial.number} Finished | Metric: {metric:.3f} ---")
-        return metric
+*   The training loop **must** provide `global_step` and a hashable `agent_state_representation` in the `context` dictionary passed to `shaper.shape`.
+*   The state visit count can grow large; consider alternatives for very large state spaces (e.g., pseudo-counts, hashing).
+*   This component's logic controls *when* it's active based on `global_step`, even though its weight schedule is constant.
 
-    # --- Main Execution ---
-    if __name__ == "__main__":
-        config_path = "my_opt_config.yaml" # Your config file
-        with open(config_path, 'r') as f:
-            base_config = yaml.safe_load(f)
+These recipes demonstrate the flexibility of RLlama. Combine and adapt these patterns to create sophisticated reward structures tailored to your specific RL problem. Remember to leverage the `context` dictionary and weight scheduling for dynamic and stateful reward logic.
+```
 
-        # Define Search Space
-        search_space = {
-            "MyRegisteredGoalReward": { # Match component name
-                "initial_weight": {"type": "float", "low": 1.0, "high": 50.0, "log": True}
-            },
-            "MyRegisteredStepPenalty": { # Match component name
-                "initial_weight": {"type": "float", "low": 0.01, "high": 2.0, "log": True}
-            }
-        }
 
-        objective_with_context = lambda trial: objective(trial, base_config, search_space)
 
-        storage_path = "sqlite:///my_opt_study.db"
-        study_name = "my_env_reward_tuning"
-
-        optimizer = BayesianRewardOptimizer(
-            base_config=base_config,
-            search_space=search_space,
-            objective_fn=objective_with_context,
-            n_trials=30, # Number of trials
-            study_name=study_name,
-            storage=storage_path,
-            direction="maximize" # Or "minimize"
-        )
-
-        study = optimizer.optimize()
-
-        # (Optional) Add visualization and best config saving here
-        # ...
-    ```
-
-4.  **Run the Optimization:**
-    ```bash
-    python run_optimization.py
-    ```
-    Optuna will run multiple trials, calling your `objective` function with different reward shaping parameters each time. It will print the progress and report the best parameters found.
-
-5.  **Analyze Results:**
-    Use the printed output, the saved `best_config.yaml` (if added), or Optuna visualization tools (like `optuna-dashboard sqlite:///my_opt_study.db`) to understand the results.
-
-This recipe provides a framework. You'll need to fill in the details specific to your RL environment, agent, and reward
+        
