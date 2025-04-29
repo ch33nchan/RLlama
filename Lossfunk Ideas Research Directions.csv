@@ -1,0 +1,85 @@
+"Demand hypothesis (current and in near future) - big, open problems in the world",Status quo - How people are currently trying to solve (or will likely solve in near future),10x improvement - What would be a 10x improvement? What will they desire that what can we radically improve?,Proposal - How could you solve for this 10x improvement? What's the key innovation(s)?
+"In 1 year, everyone will be doing RL but there's no good framework for it","When people do RL, they would use Huggingface TRL, which provides interfaces and algorithms for reward functions. But there's no easy way to do quick experiments to figure out the right way. Perhaps a bayesian optimization framework will be the right one","Instead of writing reward functions, doing messy tweaks with their weights, manually writing loops for changing those weights, a simple framework to do all this in one go
+
+RL will become a foundational technique, so it has potential to be used by everyone","Framework to do RL reward shaping at scale
+
+Reward shaping has a significant impact on RL runs. Right now it's all messy. Imagine a python library + dashboard that can help you optimize various RL related hyperparameters.
+
+It can help developers quickly do experiments on how to add up different rewards? How to change their weights over a period of time?
+
+Framework can provide out of the box rewards such as length, entropy bonus, etc. Think LangChain but for RL. Think OpenAI's reinforcement learning finetuning service, but open source."
+,,,
+Progress in RL will be limited by availability of reward signals,"Current reward models are limited by either code/math where hard verifiers exist OR human preferences.
+
+People will try to train more and more custom reward models for their domains, but lack a library with a set of best practices to do so.
+
+As AI takes off, we will need reward models that understand a niche domain really well.",Imagine each industry having its own reward model.,"Domain specific reward models that can reason
+
+Current reward models do not reason, they just output a number. Most useful reasoning that humans do is where we simulate future scenarios in our head. To create superintelligent AI models, we need reward models to approximate what ""goodness"" or ""usefulness"" is in a specific domain in the real world so that using RL can improve performance in that domain.
+
+Will likely use LLM-as-a-judge to improve reasoning in open domains over a period of time. LLM can judge COT and we can use that reward for better reasoning for a domain
+
+This is potentially a project/service that can ease training of these reward models.
+
+Self generated rewards (model it on dopamine)
+Build a model of rewards -> what situations lead to rewards and what situation lead to those situations
+
+Have an equivalent of dopamine that encourages exploration"
+"RL is proven to work in language models, now everyone will be applying them to visual language models
+
+The world is full of pictures, so doing this will be hugely impactful","People will try applying existing architectures, but as we know base models are key, so perhaps taking a really large base VLM and then doing RL on it is the key","Visual reasoning models
+
+Current visual language models are basic. We can build a series of visual reasoning models that excel at answering harder questions about images such as
+
+""is this crop healthy?"", ""is there a chance of tumor"" etc.
+
+We can make these models extremely easy to finetune
+
+And on visual reasoning models, it’s all about creating a dataset","
+If we are able to curate a good dataset of images, question, cot, answer
+
+We can follow this simple method to finetune existing VLMs to exhibit reasoning 
+
+https://arxiv.org/abs/2501.19393
+
+Or https://arxiv.org/abs/2502.03387
+
+Perhaps questions can be visual puzzles like raven matrices"
+"RL is proven to work in language models, now everyone will be applying them to visual language models
+
+The world is full of videos, so doing this will be hugely impactful","People will try applying existing architectures, but as we know base models are key, so perhaps taking a really large base VLM and then doing RL on it is the key","Video reasoning models
+
+Video language models are non-existent. We can build a series of video models that excel at answering harder questions about videos such as
+
+""is there an oil spill?"",
+
+We can make these models extremely easy to finetune",??
+"Agents not being reliable is the current narrative, and everyone will want to make their agents reliable 
+
+If we make agents reliable, it will have a huge impact","A lot of people will try to do this, but it is not clear what method will get us here",Agents that are highly reliable (and perhaps reach out to a human when they detect a task out of their scope),"Making agents reliable by RL on end-to-end agentic & tool caling 
+
+Why limit doing RL on language models? What if we do it on end to end workflows?
+
+Imagine if we make RL work on agents, we can make them much more reliable. 
+
+It can be a platform for training these agents too."
+Generating traces for RL is going to pick up,"High temperature is the way people do it
+
+People will spend more compute in doing explorations because RL needs diversity","A method to generate optimal RL traces for faster / compute-efficient RL training
+
+This will also pave the way for self-improving models","Increasing exploration and diversity in LLMs
+
+Current RL is bound by how diverse are the samples generated by LLMs. It is known that diversity saturates pretty quickly upon repeat samples
+
+How do we keep on producing maximally diverse outputs for a prompt so that RL can harness and guide towards better outcomes over time"
+Reinforcement learning for specific domains,HuggingFace libaries (TRL),A hosted service that does RL automatically and magically,"Open source version of the following
+
+https://openai.com/form/rft-research-program/"
+Sample efficiency in RL,RL is highly sample inefficient,SOTA on sample efficiency on many RL tasks,"Discover common abstractions between sequences of actions that lead to a positive reward
+Maximally diverse exploration of state space
+Rethink rewards: time bonus + prioritize survival (over winning)
+
+Intution: given two actions that lead to -ve reward, choose the one that takes longer"
+Deep research on a topic (grounded in facts),Deep Research by OpenAI / Grok in textual format,"Generate an easy to consume deck instead of text
+
+People consume decks in an easier manner, this is why all consultants use them",??
