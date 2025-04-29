@@ -144,19 +144,19 @@ def objective(trial: optuna.Trial, base_config: Dict[str, Any], search_space: Di
         reward_components = []
         component_map = {} # Keep track for shaper config
         for name, comp_config in reward_components_config.items():
-            # Use the helper to get the component class
-            component_class = get_reward_component_class(comp_config['class'])
-            if component_class:
-                 component = component_class(**comp_config.get('params', {}))
+            # get_reward_component likely returns an instance or callable
+            component_instance = get_reward_component(comp_config['class']) # Get the component instance/callable
+            if component_instance:
+                 # Directly use the returned component instance
+                 component = component_instance # <<< FIX HERE: Don't call it again
                  # Use the component's actual name property as the key
                  comp_internal_name = component.name
                  reward_components.append(component)
                  component_map[comp_internal_name] = component
                  logger.debug(f"Trial {trial.number}: Created component '{comp_internal_name}' of type {comp_config['class']}")
             else:
-                 logger.error(f"Trial {trial.number}: Could not find or load reward component class '{comp_config['class']}'. Skipping.")
-                 # Optionally raise an error or return bad score if critical component fails
-                 # return -float('inf')
+                 logger.error(f"Trial {trial.number}: Could not find or load reward component class '{comp_config['class']}' using get_reward_component. Skipping.")
+                 # return -float('inf') # Optionally return bad score
 
 
         # Create Composer
@@ -308,7 +308,8 @@ if __name__ == "__main__":
 
     # 3. Create BayesianRewardOptimizer instance (Uncomment this block)
     # Use a lambda to pass base_config and search_space to the objective wrapper inside the optimizer
-    objective_with_context = lambda trial: objective(trial, base_config, search_space)
+    # Ensure this lambda accepts three arguments
+    objective_with_context = lambda trial, cfg, space: objective(trial, cfg, space) # <<< CORRECT DEFINITION
 
     # Define study storage path
     storage_dir = "/Users/cheencheen/Desktop/git/rl/RLlama/examples/optuna_results"
