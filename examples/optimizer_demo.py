@@ -6,7 +6,7 @@ import os
 import logging
 from collections import deque
 from typing import Dict, Any
-
+from rllama.rewards.registry import reward_registry # <<< Correct import
 # Ensure rllama is importable (adjust path if necessary or install with 'pip install -e .')
 try:
     # print("Attempting to import RewardComposer...") # Removed debug print
@@ -32,9 +32,8 @@ try:
     # We don't need the dashboard for this specific demo
 
     # The registry should auto-register common components upon import
-    # print("Attempting to import _registry_instance...") # Removed debug print
-    from rllama.rewards.registry import _registry_instance
-    # print("OK: _registry_instance") # Removed debug print
+    # Remove the following incorrect import line:
+    # from rllama.rewards.registry import _registry_instance
 
 except ImportError as e:
     # print(f"ERROR during import: {e}") # Keep or remove this enhanced error message as you prefer
@@ -75,15 +74,26 @@ class QLearningAgent:
         if done:
             self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
-# --- Objective Function for Optuna ---
+# --- Helper: Dynamically load reward component ---
+# NOTE: The function below named 'get_reward_component_class' seems to be misplaced.
+# It contains the logic for the Optuna objective function. Let's rename it to 'objective'.
+# def get_reward_component_class(class_name: str) -> type: # <<< RENAME THIS FUNCTION
 def objective(trial: optuna.Trial, base_config: Dict[str, Any], search_space: Dict[str, Any]) -> float:
     """
     Runs a short RL training session with the sampled config and returns performance.
     """
+    # Need a global step counter if schedules depend on it across trials/episodes
+    # Resetting it here might be incorrect if schedules should persist across trials.
+    # For simplicity in this demo, let's assume steps are per-trial or per-episode.
+    # If schedules need global steps, this needs rethinking.
+    global_step_counter = 0 # Reset for each trial for simplicity here
+
     logger.info(f"\n--- Starting Trial {trial.number} ---")
 
     # 1. Create the specific config for this trial
-    current_config = base_config.copy() # Start with base
+    # Use deepcopy to avoid modifying the original base_config between trials
+    import copy
+    current_config = copy.deepcopy(base_config) # Use deepcopy
     current_shaping = current_config.setdefault("reward_shaping", {})
 
     # Sample hyperparameters defined in search_space
@@ -134,34 +144,48 @@ def objective(trial: optuna.Trial, base_config: Dict[str, Any], search_space: Di
         reward_components = []
         component_map = {} # Keep track for shaper config
         for name, comp_config in reward_components_config.items():
-            component = get_reward_component(comp_config['class'], **comp_config.get('params', {}))
-            reward_components.append(component)
-            component_map[component.name] = component # Map internal name to instance
+            # Use the helper to get the component class
+            component_class = get_reward_component_class(comp_config['class'])
+            if component_class:
+                 component = component_class(**comp_config.get('params', {}))
+                 # Use the component's actual name property as the key
+                 comp_internal_name = component.name
+                 reward_components.append(component)
+                 component_map[comp_internal_name] = component
+                 logger.debug(f"Trial {trial.number}: Created component '{comp_internal_name}' of type {comp_config['class']}")
+            else:
+                 logger.error(f"Trial {trial.number}: Could not find or load reward component class '{comp_config['class']}'. Skipping.")
+                 # Optionally raise an error or return bad score if critical component fails
+                 # return -float('inf')
+
 
         # Create Composer
         composer_settings = current_config.get('composer_settings', {})
         composer = RewardComposer(reward_components, **composer_settings)
+        logger.info(f"Trial {trial.number}: Composer created with normalization: {composer.normalization_strategy}, warmup: {composer.norm_warmup_steps}")
+
 
         # Create Shaper
         shaping_configs_dict = current_config.get('reward_shaping', {})
-        reward_configs = {}
-        for comp_internal_name, cfg_dict in shaping_configs_dict.items():
-             # Ensure the component exists before creating config
-             if comp_internal_name in component_map:
-                 # The key of shaping_configs_dict IS the name we need
-                 cfg_dict['name'] = comp_internal_name
-                 reward_configs[comp_internal_name] = RewardConfig(**cfg_dict)
-             else:
-                 logger.warning(f"Shaping config found for '{comp_internal_name}', but no matching component was created. Skipping.")
+        # Create RewardConfig instances directly for the shaper
+        shaper = RewardShaper(shaping_configs_dict) # Pass the dict directly
 
-        # Add default configs (weight=1, schedule=none) for components that exist but have no shaping config
-        for comp_name, component in component_map.items():
-            if comp_name not in reward_configs:
-                logger.debug(f"Component '{comp_name}' has no explicit shaping config. Adding default (weight=1, schedule=none).")
-                reward_configs[comp_name] = RewardConfig(name=comp_name, initial_weight=1.0, decay_schedule='none')
+        # Validation: Check if all components in the composer have a shaping config in the shaper
+        composer_comp_names = {c.name for c in composer.components}
+        shaper_comp_names = set(shaper.configs.keys())
+
+        missing_in_shaper = composer_comp_names - shaper_comp_names
+        if missing_in_shaper:
+            logger.warning(f"Trial {trial.number}: Components {missing_in_shaper} exist but lack shaping configs. Defaulting to weight=1, schedule=none.")
+            # Add default configs to the shaper instance AFTER initialization
+            for name in missing_in_shaper:
+                 shaper.configs[name] = RewardConfig(name=name, initial_weight=1.0, decay_schedule='none')
 
 
-        shaper = RewardShaper(reward_configs)
+        extra_in_shaper = shaper_comp_names - composer_comp_names
+        if extra_in_shaper:
+             logger.warning(f"Trial {trial.number}: Shaping configs exist for {extra_in_shaper}, but corresponding components were not created. These configs will be ignored by the composer.")
+
 
     except Exception as e:
         logger.error(f"Trial {trial.number}: Failed to set up RLlama components: {e}", exc_info=True)
@@ -176,42 +200,64 @@ def objective(trial: optuna.Trial, base_config: Dict[str, Any], search_space: Di
         state, info = env.reset()
         total_reward = 0
         done = False
-        steps = 0
+        steps_in_episode = 0 # Reset step count for the episode
 
-        while not done and steps < max_steps_per_episode:
+        while not done and steps_in_episode < max_steps_per_episode:
             action = agent.select_action(state)
             next_state, env_reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
+            steps_in_episode += 1
+            global_step_counter += 1
 
             # --- RLlama Integration ---
-            # Update shaper (though weights are constant in this simple setup)
-            # Pass global_step=episode*max_steps_per_episode + steps if using time-varying weights
-            shaper.update_weights(global_step=0) # Step doesn't matter if schedule is 'none'
+            # Update shaper using steps *within* the episode for schedules like start_step
+            shaper.update_weights(current_step=steps_in_episode)
             current_weights = shaper.get_weights()
 
             # Add necessary info for reward components
-            # For FrozenLake, let's explicitly add goal/hole info based on termination
-            map_desc = getattr(env.unwrapped, 'desc', None) # Get map if possible
+            map_desc = getattr(env.unwrapped, 'desc', None)
             info['env_desc'] = map_desc
             info['goal_state'] = 15 # Assuming 4x4 map goal
             info['terminated'] = terminated
             info['truncated'] = truncated
             info['reached_goal'] = terminated and next_state == info['goal_state']
-            # HolePenaltyReward needs a way to know it landed on a hole
-            # We can infer this if terminated but not at goal (specific to FrozenLake)
             info['landed_on_hole'] = terminated and not info['reached_goal']
+            info['steps_taken'] = steps_in_episode # <<< Add step count for LengthPenalty
 
-
-            # Calculate raw and combined rewards
+            # Calculate raw rewards
             raw_rewards = composer.compute_rewards(state, action, next_state, info)
+
+            # Get normalized rewards (for logging/inspection) - composer handles internal normalization
+            # We need a way to peek at the normalized values *before* weighting if we want to log them separately.
+            # Let's modify RewardComposer slightly to return raw & normalized if needed, or just log inside.
+            # For now, let's just get the final reward and log components.
             final_shaped_reward = composer.combine_rewards(raw_rewards, current_weights)
+
+            # --- Logging Reward Breakdown (Optional) ---
+            if steps_in_episode % 20 == 0 or done: # Log periodically or at the end
+                 log_msg = f"Trial {trial.number} Ep {episode+1} Step {steps_in_episode}: "
+                 log_parts = []
+                 # Access raw rewards computed earlier
+                 for name, raw_val in raw_rewards.items():
+                     weight = current_weights.get(name, 0)
+                     log_parts.append(f"{name}[raw:{raw_val:.2f}, w:{weight:.2f}]")
+                 # Get normalization stats for context (if strategy is active)
+                 if composer.normalization_strategy:
+                      stats = composer.get_normalization_stats()
+                      log_parts.append(f"NormStats:{stats}")
+
+                 log_msg += " | ".join(log_parts)
+                 log_msg += f" -> Final Reward: {final_shaped_reward:.3f}"
+                 logger.debug(log_msg)
+            # --- End Logging ---
+
+
             # --- End RLlama Integration ---
 
             agent.learn(state, action, final_shaped_reward, next_state, done)
-
             state = next_state
-            total_reward += final_shaped_reward # Use shaped reward for learning AND evaluation metric
-            steps += 1
+            total_reward += final_shaped_reward
+            # steps += 1 # Already incremented steps_in_episode
 
         episode_rewards.append(total_reward)
         if (episode + 1) % 50 == 0:
@@ -275,7 +321,7 @@ if __name__ == "__main__":
     optimizer = BayesianRewardOptimizer( # Uncomment this instantiation
         base_config=base_config,
         search_space=search_space, # Pass the search space here for validation and structure
-        objective_fn=objective_with_context, # Pass the lambda wrapper
+        objective_function=objective_with_context, # Use the corrected lambda
         n_trials=20,  # Number of optimization trials (increase for real run)
         study_name=study_name,
         storage=storage_path,
@@ -285,22 +331,27 @@ if __name__ == "__main__":
     # 4. Run Optimization (Uncomment this block)
     logger.info(f"Starting optimization with {optimizer.n_trials} trials...") # Uncomment this line
     try:
-        study = optimizer.optimize() # Uncomment this line
+        # Assign the returned tuple to appropriate variables
+        best_params, best_value = optimizer.optimize()
+        # Get the actual study object from the optimizer instance
+        actual_study = optimizer.get_study()
 
         logger.info("\n--- Optimization Finished ---")
-        logger.info(f"Study name: {study.study_name}")
-        logger.info(f"Number of finished trials: {len(study.trials)}")
+        # Use the actual_study object for logging
+        logger.info(f"Study name: {actual_study.study_name}")
+        logger.info(f"Number of finished trials: {len(actual_study.trials)}")
 
-        best_trial = study.best_trial
+        # Use the variables returned by optimize() or get from the study again
+        best_trial = actual_study.best_trial # Or use best_params/best_value directly
         logger.info(f"Best trial number: {best_trial.number}")
-        logger.info(f"Best value (Avg Reward): {best_trial.value:.4f}")
+        logger.info(f"Best value (Avg Reward): {best_trial.value:.4f}") # Or use best_value
         logger.info("Best parameters found:")
-        for key, value in best_trial.params.items():
+        for key, value in best_trial.params.items(): # Or use best_params
             logger.info(f"  {key}: {value}")
 
-        # You can add Optuna visualization calls here if desired
-        # e.g., optuna.visualization.plot_optimization_history(study).show()
-        # optuna.visualization.plot_param_importances(study).show()
+        # Optuna visualization calls using actual_study
+        # e.g., optuna.visualization.plot_optimization_history(actual_study).show()
+        # optuna.visualization.plot_param_importances(actual_study).show()
 
     except Exception as e:
         logger.error(f"An error occurred during optimization: {e}", exc_info=True) # Uncomment this block

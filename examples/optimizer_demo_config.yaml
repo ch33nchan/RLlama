@@ -1,44 +1,81 @@
-# Base configuration for the Bayesian Optimization Demo using FrozenLake
+# Base configuration for the optimizer demo (FrozenLake)
 
-# Settings for the RewardComposer (can be overridden by optimizer if needed)
+# --- Optuna Search Space ---
+# Defines parameters Optuna will tune.
+# Format: param_path: {type: 'categorical'/'float'/'int', choices/low/high: [...]}
+# Use dot notation for nested parameters, e.g., "reward_shaping.step_penalty.initial_weight"
+search_space:
+  reward_shaping.frozen_lake_hole.initial_weight:
+    type: 'float'
+    low: 0.5
+    high: 2.0
+  reward_shaping.step_penalty.initial_weight:
+    type: 'float'
+    low: 0.1
+    high: 1.5
+  # Example: Tune normalization strategy
+  composer_settings.normalization_strategy:
+    type: 'categorical'
+    choices: [null, 'z_score', 'min_max']
+  # Example: Tune length penalty weight
+  reward_shaping.length_penalty.initial_weight:
+     type: 'float'
+     low: 0.1
+     high: 1.0
+
+
+# --- Base RLlama Configuration ---
+# Parameters here are fixed unless overridden by Optuna's search space.
+
+# Settings for the RewardComposer
 composer_settings:
-  normalize: false # Keep it simple for this demo, don't normalize
+  # Optuna might override this:
+  normalization_strategy: null # Options: 'z_score', 'min_max', null
+  norm_epsilon: 1.0e-8
+  norm_warmup_steps: 50 # Give stats some time to stabilize before normalizing
 
-# Define the reward components we will always use
+# Define the reward components to be used
 reward_components:
-  goal:
-    class: goal_reward # Registered name for GoalReward
-    # Remove the entire 'params' section for goal
-    # params:
-    #   goal_state: 15
-  penalty_step:
-    class: step_penalty # Registered name for StepPenaltyReward
-    # Remove the entire 'params' section for penalty_step
-    # params:
-    #   pass
-  penalty_hole:
-    class: hole_penalty # Registered name for HolePenaltyReward
-    # Remove the entire 'params' section for penalty_hole
-    # params:
-    #   pass
+  frozen_lake_goal:
+    class: FrozenLakeGoalReward # Assumes this class is registered/imported
+    params:
+      reward_value: 10.0 # Large reward for reaching the goal
+  frozen_lake_hole:
+    class: FrozenLakeHolePenalty # Assumes this class is registered/imported
+    params:
+      penalty_value: -5.0 # Significant penalty for falling in a hole
+  step_penalty:
+    class: StepPenaltyReward # Assumes this class is registered/imported
+    params:
+      penalty_value: -0.1 # Small penalty for each step to encourage efficiency
+  # Add our new LengthPenalty component
+  length_penalty:
+     class: LengthPenalty # From rllama.rewards.components
+     params:
+       max_length: 10 # Arbitrary for FrozenLake, just for demo. Action is int 0-3.
+       penalty_per_token: -0.5 # Penalty if action > 10 (won't happen here)
+       length_source: 'action' # Try to get len(action) - WILL LIKELY FAIL for int action
 
-# Define the BASE reward shaping. The optimizer will TUNE parameters here.
-# We only include components we want the optimizer to potentially tune.
-# If a component from 'reward_components' is NOT listed here,
-# the optimizer assumes its weight is 1.0 and schedule is 'none'.
+# Define shaping configurations (weights, decay) for RewardShaper
+# Keys here MUST match the 'name' property of the instantiated reward components
 reward_shaping:
-  # Goal reward: We might want to tune its initial weight.
-  # Let Optuna decide the initial weight. We provide a default structure.
-  goal_reward: # Matches GoalReward().name
-    initial_weight: 10.0 # Default, Optuna will override if in search space
-    decay_schedule: 'none' # Keep it simple, don't decay goal weight
-
-  # Step penalty: Tune its weight.
-  step_penalty: # Matches StepPenaltyReward().name
-    initial_weight: 1.0 # Default, Optuna will override
-    decay_schedule: 'none'
-
-  # Hole penalty: Tune its weight.
-  hole_penalty: # Matches HolePenaltyReward().name
-    initial_weight: 1.0 # Default, Optuna will override
-    decay_schedule: 'none'
+  frozen_lake_goal:
+    initial_weight: 1.0
+    decay_schedule: 'none' # Goal reward is always important
+  frozen_lake_hole:
+    # Optuna might override this:
+    initial_weight: 1.0
+    decay_schedule: 'none' # Hole penalty is always important
+  step_penalty:
+    # Optuna might override this:
+    initial_weight: 1.0
+    # Example: Demonstrate linear increase with start step
+    decay_schedule: 'linear_increase'
+    decay_steps: 100 # Increase over 100 steps (relative to start_step)
+    max_weight: 2.0 # Double the weight eventually
+    start_step: 50 # Start increasing after 50 steps within an episode
+  # Add shaping for the length penalty
+  length_penalty:
+     # Optuna might override this:
+     initial_weight: 0.5
+     decay_schedule: 'none'

@@ -106,15 +106,20 @@ reward_registry = RewardRegistry()
 # These might cause issues if they reference a different instance or old methods.
 # Consider removing them if `reward_registry.register` and `reward_registry.create` are used directly.
 
-# def register_reward(name: str, component_class: Type[BaseReward]):
-#     """Registers a reward component class globally."""
-#     # Ensure this uses the correct instance and method
-#     reward_registry._register_directly(name, component_class) # Example: Use direct registration for this function
+# Uncomment and rename register_reward to register_reward_component
+def register_reward_component(name: str, component_class: Type[BaseReward]):
+    """Registers a reward component class globally."""
+    # Ensure this uses the correct instance and method
+    # Use the public register method which returns a decorator, then call it
+    # Or use the internal direct method if preferred for this global function
+    reward_registry._register_directly(name, component_class) # Use direct registration
 
-# def get_reward_component(name: str, params: Optional[Dict[str, Any]] = None) -> BaseReward:
-#     """Creates an instance of a registered reward component globally."""
-#     return reward_registry.create(name, params)
+# Uncomment get_reward_component
+def get_reward_component(name: str, params: Optional[Dict[str, Any]] = None) -> BaseReward:
+    """Creates an instance of a registered reward component globally."""
+    return reward_registry.create(name, params)
 
-# def get_reward_class(name: str) -> Optional[Type[BaseReward]]:
-#     """Gets the class associated with a registered name globally."""
-#     return reward_registry.get_class(name)
+# Uncomment and rename get_reward_class to get_reward_component_class
+def get_reward_component_class(name: str) -> Optional[Type[BaseReward]]:
+    """Gets the class associated with a registered name globally."""
+    return reward_registry.get_class(name)

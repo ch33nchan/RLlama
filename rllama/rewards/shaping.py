@@ -1,80 +1,104 @@
-import math
-from dataclasses import dataclass, field
-from typing import Dict, Optional, Literal
+import logging
+from typing import Dict, Any, Optional, Literal
 
-DecaySchedule = Literal["none", "linear", "exponential", "cosine"]
+logger = logging.getLogger(__name__)
 
-@dataclass
+DecaySchedule = Literal['none', 'linear', 'exponential', 'linear_increase']
+
 class RewardConfig:
-    name: str
-    initial_weight: float
-    decay_schedule: DecaySchedule = "none"
-    min_weight: float = 0.0
-    max_weight: float = 1.0 # Added for potential future use (e.g., adaptive scaling)
-    # Renamed warmup_steps to decay_steps for clarity with schedules
-    decay_steps: int = 1000
-    # Added decay_rate for exponential schedule
-    decay_rate: float = 0.99
+    """Configuration for shaping a single reward component's weight over time."""
+    def __init__(self,
+                 name: str,
+                 initial_weight: float = 1.0,
+                 decay_schedule: DecaySchedule = 'none',
+                 decay_rate: float = 0.0, # Rate for linear/exponential decay/increase
+                 decay_steps: int = 0, # Total steps for decay/increase
+                 min_weight: float = 0.0, # Floor for decay
+                 max_weight: float = float('inf'), # Ceiling for increase
+                 start_step: int = 0, # Step to start applying the schedule
+                 **kwargs): # Allow extra params for future schedules
+        self.name = name
+        self.initial_weight = initial_weight
+        self.decay_schedule = decay_schedule
+        self.decay_rate = decay_rate
+        self.decay_steps = decay_steps
+        self.min_weight = min_weight
+        self.max_weight = max_weight # Add max_weight
+        self.start_step = start_step # Add start_step
+        self.current_weight = initial_weight
+        self.extra_params = kwargs # Store any other params
+
+        # Basic validation
+        if decay_schedule != 'none' and decay_steps <= 0:
+            logger.warning(f"RewardConfig '{name}': decay_schedule '{decay_schedule}' requires decay_steps > 0. Schedule disabled.")
+            self.decay_schedule = 'none'
+        if decay_schedule == 'linear_increase' and max_weight == float('inf'):
+             logger.warning(f"RewardConfig '{name}': decay_schedule 'linear_increase' should ideally have a 'max_weight' defined.")
+
+
+        logger.debug(f"Initialized RewardConfig '{name}': initial={initial_weight}, schedule={decay_schedule}, rate={decay_rate}, steps={decay_steps}, min={min_weight}, max={max_weight}, start={start_step}")
+
+    def get_current_weight(self, current_step: int) -> float:
+        """Calculates the weight at the current training step based on the schedule."""
+
+        # Only apply schedule after start_step
+        if current_step < self.start_step:
+            return self.initial_weight # Or should it be 0 before start? Let's assume initial_weight.
+
+        # Calculate effective steps *after* the start step
+        effective_step = current_step - self.start_step
+
+        if self.decay_schedule == 'none' or self.decay_steps <= 0:
+            self.current_weight = self.initial_weight
+        elif self.decay_schedule == 'linear':
+            progress = min(effective_step / self.decay_steps, 1.0)
+            weight_range = self.initial_weight - self.min_weight
+            self.current_weight = self.initial_weight - (weight_range * progress)
+            self.current_weight = max(self.current_weight, self.min_weight) # Ensure floor
+        elif self.decay_schedule == 'exponential':
+             # w_t = w_0 * (rate ^ (t / steps)) - needs careful rate definition
+             # Alternative: w_t = w_min + (w_0 - w_min) * exp(-decay_rate * t / steps) ?
+             # Let's use a simpler multiplicative decay: w_t = w_0 * (decay_rate ^ progress)
+             # Requires decay_rate typically < 1, e.g., 0.999
+             progress = min(effective_step / self.decay_steps, 1.0)
+             # Ensure decay_rate is suitable for exponential decay (e.g., slightly less than 1)
+             rate = self.decay_rate if 0 < self.decay_rate < 1 else 0.999 # Default if rate is invalid
+             self.current_weight = self.initial_weight * (rate ** progress)
+             self.current_weight = max(self.current_weight, self.min_weight) # Ensure floor
+        elif self.decay_schedule == 'linear_increase':
+            progress = min(effective_step / self.decay_steps, 1.0)
+            # Calculate total increase possible (max_weight - initial_weight)
+            # If max_weight is inf, use decay_rate to define slope? Let's assume max_weight is set.
+            target_weight = self.max_weight if self.max_weight != float('inf') else self.initial_weight + self.decay_rate * self.decay_steps # Estimate target if max not set
+            weight_range = target_weight - self.initial_weight
+            self.current_weight = self.initial_weight + (weight_range * progress)
+            self.current_weight = min(self.current_weight, self.max_weight) # Ensure ceiling
+
+        return self.current_weight
 
 class RewardShaper:
-    def __init__(self, config: Dict[str, RewardConfig]):
-        self.config = config
-        # Initialize current weights and step counts
-        self.current_weights = {name: cfg.initial_weight for name, cfg in config.items()}
-        self.step_counts = {name: 0 for name in config}
+    """Manages multiple RewardConfig instances and provides current weights."""
+    def __init__(self, shaping_configs: Dict[str, Dict[str, Any]]):
+        self.configs: Dict[str, RewardConfig] = {}
+        for name, params in shaping_configs.items():
+            try:
+                # Creates a RewardConfig for each entry in shaping_configs
+                self.configs[name] = RewardConfig(name=name, **params)
+            except Exception as e:
+                logger.error(f"Failed to initialize RewardConfig for '{name}' with params {params}: {e}", exc_info=True)
+        self._current_step = 0
+        logger.info(f"RewardShaper initialized with configs for: {list(self.configs.keys())}")
 
-    def update_weights(self, global_step: Optional[int] = None, metrics: Optional[Dict[str, float]] = None):
-        """
-        Updates the weights based on decay schedules and optionally adaptive metrics.
-        Uses internal step counts if global_step is not provided.
-        """
-        for name, cfg in self.config.items():
-            # Increment internal step count
-            current_step = self.step_counts[name]
-            self.step_counts[name] += 1
-
-            # Use global_step if provided, otherwise use internal count
-            effective_step = global_step if global_step is not None else current_step
-
-            # Calculate target weight based on schedule
-            target_weight = cfg.initial_weight
-            if cfg.decay_schedule != "none" and cfg.decay_steps > 0:
-                progress = min(1.0, effective_step / cfg.decay_steps) # Ensure progress doesn't exceed 1
-
-                if cfg.decay_schedule == 'linear':
-                    target_weight = cfg.initial_weight - (cfg.initial_weight - cfg.min_weight) * progress
-                elif cfg.decay_schedule == 'exponential':
-                    # decay_rate determines how fast it decays per step within decay_steps
-                    # Effective decay rate adjusted for the number of steps
-                    effective_decay_rate = cfg.decay_rate ** (1 / cfg.decay_steps) if cfg.decay_rate > 0 else 0
-                    target_weight = cfg.initial_weight * (effective_decay_rate ** effective_step)
-                    # Alternative: Simple exponential decay independent of decay_steps
-                    # target_weight = self.current_weights[name] * cfg.decay_rate
-                elif cfg.decay_schedule == 'cosine':
-                    cosine_decay = 0.5 * (1 + math.cos(math.pi * progress))
-                    target_weight = cfg.min_weight + (cfg.initial_weight - cfg.min_weight) * cosine_decay
-
-            # Ensure weight stays within bounds [min_weight, initial_weight] during decay
-            # (max_weight is not used for decay clamping here, but could be for adaptive changes)
-            self.current_weights[name] = max(cfg.min_weight, min(cfg.initial_weight, target_weight))
-
-            # --- Placeholder for Adaptive Adjustment ---
-            # This part can be expanded significantly based on metrics
-            if metrics and name in metrics:
-                 self._adjust_weight_from_metric(name, metrics[name])
-            # --- End Placeholder ---
-
-
-    def _adjust_weight_from_metric(self, name: str, metric: float):
-        """Placeholder for dynamically adjusting weights based on performance metrics."""
-        # Example: Very basic adjustment - increase weight slightly if metric is low
-        cfg = self.config[name]
-        current_weight = self.current_weights[name]
-        if metric < 0.1: # Example threshold for poor performance
-             self.current_weights[name] = min(cfg.max_weight, current_weight * 1.01)
-        # More sophisticated logic needed here based on specific goals
-        pass
+    def update_weights(self, current_step: int):
+        """Updates the internal step counter and recalculates weights (optional)."""
+        self._current_step = current_step
+        # Weights are calculated on demand in get_weights, so just update step
 
     def get_weights(self) -> Dict[str, float]:
-        """Returns the current weights."""
-        return self.current_weights.copy()
+        """Returns a dictionary of current weights for all managed components."""
+        # Calls get_current_weight() on each managed RewardConfig
+        return {name: config.get_current_weight(self._current_step)
+                for name, config in self.configs.items()}
+
+    # Optional: Add methods to update config parameters dynamically if needed
+    # def update_config_param(self, component_name: str, param_name: str, value: Any): ...

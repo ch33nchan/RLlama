@@ -24,15 +24,13 @@ reward_components:
 reward_shaping:
   frozen_lake_goal: # Must match FrozenLakeGoalReward().name
     initial_weight: 1.0
-    decay_schedule: 'none'
+    decay_schedule: 'none' # Weight stays constant
   frozen_lake_hole: # Must match FrozenLakeHolePenalty().name
     initial_weight: 1.0
     decay_schedule: 'none'
   step_penalty: # Must match StepPenaltyReward().name
     initial_weight: 1.0
-    decay_schedule: 'none'
     # Example with decay:
-    # initial_weight: 0.5
     # decay_schedule: 'linear'
     # decay_steps: 5000
     # min_weight: 0.0

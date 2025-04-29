@@ -70,43 +70,46 @@ def load_config_from_yaml(config_path: str) -> Tuple[RewardComposer, RewardShape
         except Exception as e:
             raise ValueError(f"Error instantiating component '{name}' ({component_class_name}): {e}")
 
-    # --- 2. Instantiate Reward Shaper ---
-    shaping_configs_dict = config.get("reward_shaping", {})
-    if not isinstance(shaping_configs_dict, dict):
-        raise ValueError("'reward_shaping' section must be a dictionary (map).")
-
-    reward_configs: Dict[str, RewardConfig] = {}
-    for component_name, shape_params in shaping_configs_dict.items():
-         if not isinstance(shape_params, dict):
-             raise ValueError(f"Shaping parameters for component '{component_name}' must be a dictionary.")
-         # TODO: Validate shape_params structure (e.g., initial_weight, schedule_type, etc.)
-         try:
-             # Assuming RewardConfig takes parameters directly from the dict
-             reward_configs[component_name] = RewardConfig(**shape_params)
-             print(f"Successfully created RewardConfig for: {component_name}") # Debug print
-         except Exception as e:
-             raise ValueError(f"Error creating RewardConfig for '{component_name}': {e}")
-
-    # Ensure all instantiated components have a shaping config (even if default)
-    # TODO: Add logic to handle components mentioned in 'reward_components' but not in 'reward_shaping' (use defaults?)
-    component_names_set = {c.name for c in components}
-    shaping_names_set = set(reward_configs.keys())
-    if component_names_set != shaping_names_set:
-        # For now, require explicit shaping config for every component
-        missing_shaping = component_names_set - shaping_names_set
-        extra_shaping = shaping_names_set - component_names_set
-        error_msg = ""
-        if missing_shaping:
-            error_msg += f" Components missing shaping config: {missing_shaping}."
-        if extra_shaping:
-            error_msg += f" Shaping config found for non-existent components: {extra_shaping}."
-        if error_msg:
-             raise ValueError(f"Mismatch between defined components and shaping configurations.{error_msg}")
-
-
+    # Inside load_config_from_yaml function
+    
+        # --- 2. Instantiate Reward Shaper ---
+        shaping_configs_dict = config.get("reward_shaping", {})
+        if not isinstance(shaping_configs_dict, dict):
+            raise ValueError("'reward_shaping' section must be a dictionary (map).")
+    
+        reward_configs: Dict[str, RewardConfig] = {}
+        for component_name, shape_params in shaping_configs_dict.items():
+             if not isinstance(shape_params, dict):
+                 raise ValueError(f"Shaping parameters for component '{component_name}' must be a dictionary.")
+             # TODO: Validate shape_params structure (e.g., initial_weight, schedule_type, etc.)
+             try:
+                 # Uses the parameters from YAML to create RewardConfig instances
+                 reward_configs[component_name] = RewardConfig(**shape_params)
+                 print(f"Successfully created RewardConfig for: {component_name}") # Debug print
+             except Exception as e:
+                 raise ValueError(f"Error creating RewardConfig for '{component_name}': {e}")
+    
+        # Ensure all instantiated components have a shaping config (even if default)
+        # TODO: Add logic to handle components mentioned in 'reward_components' but not in 'reward_shaping' (use defaults?)
+        component_names_set = {c.name for c in components}
+        shaping_names_set = set(reward_configs.keys())
+        if component_names_set != shaping_names_set:
+            # For now, require explicit shaping config for every component
+            missing_shaping = component_names_set - shaping_names_set
+            extra_shaping = shaping_names_set - component_names_set
+            error_msg = ""
+            if missing_shaping:
+                error_msg += f" Components missing shaping config: {missing_shaping}."
+            if extra_shaping:
+                error_msg += f" Shaping config found for non-existent components: {extra_shaping}."
+            if error_msg:
+                 raise ValueError(f"Mismatch between defined components and shaping configurations.{error_msg}")
+    
+    
+    # Instantiates the RewardShaper with the created RewardConfig objects
     shaper = RewardShaper(reward_configs=reward_configs)
     print("Successfully instantiated RewardShaper.") # Debug print
-
+    
     # --- 3. Instantiate Reward Composer ---
     composer_settings = config.get("composer_settings", {})
     if not isinstance(composer_settings, dict):
@@ -123,7 +126,7 @@ def load_config_from_yaml(config_path: str) -> Tuple[RewardComposer, RewardShape
     print("Successfully instantiated RewardComposer.") # Debug print
 
     print(f"Configuration loaded successfully from {config_path}")
-    return composer, shaper
+    return composer, shaper # Returns both composer and shaper
 
 # Example Usage (for testing purposes, can be removed later)
 if __name__ == '__main__':

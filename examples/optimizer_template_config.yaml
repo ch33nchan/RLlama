@@ -28,24 +28,23 @@ reward_components:
   negative_penalty: # Another example name
     class: my_negative_penalty # <<< The name your component is registered with
     params: {}
-      # Example: penalty_value: -0.5
+      # Example: penalty_value: -1.0
 
-# Define the BASE reward shaping parameters. Optuna will TUNE these based on
-# the 'search_space' in the Python script.
-# Only include components here if you want Optuna to tune their parameters.
-# If a component from 'reward_components' is NOT listed here, the optimizer
-# assumes its weight is 1.0 and schedule is 'none' by default (unless overridden
-# by the component's internal defaults).
-# <<< MODIFY this section based on your components and tuning goals >>>
+# Define the base shaping parameters for components you want Optuna to tune.
+# Optuna will override these values based on the 'search_space' in the Python script.
+# The keys here MUST match the internal `name` property of the components
+# listed in 'reward_components' above (or the names they are registered with if
+# the `name` property returns that).
 reward_shaping:
-  # Example: Tuning the initial weight of the positive reward
-  my_positive_reward: # <<< MUST match the component's internal name (e.g., MyPositiveReward().name)
-    initial_weight: 1.0 # Default value, Optuna will override if in search space
-    decay_schedule: 'none' # Default, can be tuned if added to search space
-
-  # Example: Tuning the initial weight of the negative penalty
-  my_negative_penalty: # <<< MUST match the component's internal name
-    initial_weight: 1.0 # Default value, Optuna will override
-    decay_schedule: 'none'
-
-  # Add other components you want to tune here...
+  my_positive_reward: # <<< Match the internal name of the positive_reward component
+    initial_weight: 1.0 # Optuna will tune this if defined in search_space
+    decay_schedule: 'none' # Example: Keep schedule fixed or tune it
+    # decay_rate: 0.001 # Example: Optuna could tune this
+    # decay_steps: 10000 # Example: Optuna could tune this
+    # min_weight: 0.1 # Example: Optuna could tune this
+  my_negative_penalty: # <<< Match the internal name of the negative_penalty component
+    initial_weight: 1.0 # Optuna will tune this
+    decay_schedule: 'linear' # Example: Tune this schedule type?
+    decay_rate: 0.0001
+    decay_steps: 50000
+    min_weight: 0.0
