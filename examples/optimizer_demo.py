@@ -323,7 +323,7 @@ if __name__ == "__main__":
         base_config=base_config,
         search_space=search_space, # Pass the search space here for validation and structure
         objective_function=objective_with_context, # Use the corrected lambda
-        n_trials=20,  # Number of optimization trials (increase for real run)
+        n_trials=100,  # <--- INCREASE THIS VALUE (e.g., to 100 or more)
         study_name=study_name,
         storage=storage_path,
         direction="maximize" # We want to maximize the average episode reward
@@ -351,8 +351,46 @@ if __name__ == "__main__":
             logger.info(f"  {key}: {value}")
 
         # Optuna visualization calls using actual_study
-        # e.g., optuna.visualization.plot_optimization_history(actual_study).show()
-        # optuna.visualization.plot_param_importances(actual_study).show()
+        # --- UNCOMMENT AND MODIFY THESE LINES ---
+        try: # Add try-except block for visualization
+            import optuna.visualization as vis
+            from optuna.importance import get_param_importances # <-- Import this
+
+            if vis.is_available():
+                # --- ADD THIS BLOCK TO PRINT IMPORTANCES ---
+                try:
+                    importances = get_param_importances(actual_study)
+                    logger.info("Calculated Parameter Importances:")
+                    for param, importance_value in importances.items():
+                        logger.info(f"  {param}: {importance_value:.6f}")
+                except Exception as imp_err:
+                    logger.error(f"Could not calculate or print importances: {imp_err}")
+                # --- END ADDED BLOCK ---
+
+
+                # Plot optimization history and save it
+                history_plot = vis.plot_optimization_history(actual_study)
+                history_plot_path = "optuna_history.html"
+                history_plot.write_html(history_plot_path)
+                logger.info(f"Saved optimization history plot to: {history_plot_path}")
+
+                # Plot parameter importances and save it
+                # This might still be empty if importances are zero
+                importance_plot = vis.plot_param_importances(actual_study)
+                importance_plot_path = "optuna_param_importances.html"
+                importance_plot.write_html(importance_plot_path)
+                logger.info(f"Saved parameter importance plot to: {importance_plot_path}")
+
+                # You can add other plots here too, e.g., plot_slice
+                # slice_plot = vis.plot_slice(actual_study)
+                # slice_plot.write_html("optuna_slice.html")
+                # logger.info("Saved slice plot to: optuna_slice.html")
+
+            else:
+                logger.warning("Optuna visualization is not available. Install plotly: pip install plotly")
+        except Exception as viz_error:
+             logger.error(f"Error during plot generation/saving: {viz_error}", exc_info=True)
+        # --- END MODIFICATION ---
 
     except Exception as e:
         logger.error(f"An error occurred during optimization: {e}", exc_info=True) # Uncomment this block
