@@ -6,7 +6,7 @@
 RLlama is a powerful Python library designed to make **reward engineering** – the crucial process of designing the signals that guide your Reinforcement Learning agents – more **structured, flexible, scalable, and optimizable**. It's particularly well-suited for complex tasks like fine-tuning Large Language Models (LLMs) using Reinforcement Learning from Human Feedback (RLHF), but its principles apply to a wide range of RL problems.
 
 ---
-
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ch33nchan/RLlama)
 ## The Core Problem: Why is Reward Engineering So Hard?
 
 Reinforcement Learning agents learn by maximizing a cumulative reward signal. The quality of this signal is paramount – a poorly designed reward can lead to agents learning the wrong behaviors, getting stuck, or failing to learn altogether.
@@ -101,7 +101,6 @@ pip install rllama
 
 ## Quick Start: Putting it Together
 
-Let's see a conceptual example of how these pieces fit into a typical RL training loop.
 
 ```python
 import gymnasium as gym
@@ -223,26 +222,17 @@ print("Training finished.")
 
 ## Dive Deeper: Documentation
 
-Ready to master reward engineering? Explore the detailed documentation:
+Explore the detailed documentation:
 
 *   **[Concepts](./docs/concepts.md):** A deep dive into `RewardComponent`, `RewardComposer`, `RewardConfig`, `RewardShaper`, scheduling, and the philosophy behind RLlama. *(Link assumes file exists)*
 *   **[Usage Guide / API](./docs/usage.md):** Practical examples and API reference for using the core classes and provided components. *(Link assumes file exists)*
 *   **[Optimization Guide](./docs/optimization_guide.md):** Step-by-step instructions on setting up and running the `BayesianRewardOptimizer` with Optuna. *(Link assumes file exists)*
 *   **[Cookbook](./docs/cookbook.md):** Ready-to-use recipes for common reward shaping patterns and scenarios (e.g., combining penalties, implementing decay, full optimization workflow). *(Link assumes file exists)*
 
----
 
-
-
-          
-Okay, let's create the content for the `docs/concepts.md` file. This file will elaborate on the core ideas introduced in the README.
-
-Here's the proposed content for the new file:
-
-```markdown:/Users/cheencheen/Desktop/git/rl/RLlama/docs/concepts.md
 # RLlama Core Concepts: A Deeper Dive
 
-This document expands on the fundamental concepts introduced in the main README, providing more detail on how RLlama structures and manages reward engineering.
+
 
 ## 1. The Building Block: `RewardComponent`
 
@@ -361,14 +351,6 @@ class UncertaintyPenalty(RewardComponent):
         return -uncertainty * 0.1
 ```
 
-By combining these concepts, RLlama provides a flexible and powerful framework for designing, managing, and optimizing sophisticated reward functions in your Reinforcement Learning projects.
-```
-
-You can save this content as `/Users/cheencheen/Desktop/git/rl/RLlama/docs/concepts.md`.
-
-Next, would you like to create the content for `docs/usage.md` (Usage Guide / API)?
-
-        
 ## Examples in Action
 
 See RLlama applied in practice:
