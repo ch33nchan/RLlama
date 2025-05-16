@@ -1,96 +1,299 @@
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
+import numpy as np
+import optuna
+from typing import Dict, List, Any, Optional, Union
 import pandas as pd
-from typing import Dict, List, Optional
+import seaborn as sns
+from matplotlib.figure import Figure
 
-class RewardDashboard:
-    """
-    Logs reward component data and generates an interactive dashboard.
-    """
+class RewardOptimizationVisualizer:
+    def __init__(self, study: optuna.study.Study):
+        self.study = study
+    
+    def plot_optimization_history(self, save_path: Optional[str] = None) -> Figure:
+        fig = plt.figure(figsize=(10, 6))
+        ax = fig.add_subplot(111)
+        
+        trials = self.study.trials
+        values = [t.value for t in trials if t.value is not None]
+        iterations = list(range(len(values)))
+        
+        best_values = [max(values[:i+1]) for i in range(len(values))]
+        
+        ax.plot(iterations, values, 'o-', label='Trial Value')
+        ax.plot(iterations, best_values, 'r-', label='Best Value')
+        
+        ax.set_xlabel('Iteration')
+        ax.set_ylabel('Objective Value')
+        ax.set_title('Optimization History')
+        ax.legend()
+        ax.grid(True)
+        
+        if save_path:
+            plt.savefig(save_path)
+            plt.close(fig)
+            return None
+        
+        return fig
+    
+    def plot_param_importances(self, save_path: Optional[str] = None) -> Figure:
+        importances = optuna.importance.get_param_importances(self.study)
+        
+        fig = plt.figure(figsize=(10, 6))
+        ax = fig.add_subplot(111)
+        
+        params = list(importances.keys())
+        values = list(importances.values())
+        
+        y_pos = np.arange(len(params))
+        
+        ax.barh(y_pos, values, align='center')
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(params)
+        ax.invert_yaxis()
+        ax.set_xlabel('Importance')
+        ax.set_title('Parameter Importances')
+        ax.grid(True, axis='x')
+        
+        if save_path:
+            plt.savefig(save_path)
+            plt.close(fig)
+            return None
+        
+        return fig
+    
+    def plot_parallel_coordinate(self, save_path: Optional[str] = None) -> Figure:
+        fig = optuna.visualization.matplotlib.plot_parallel_coordinate(self.study)
+        
+        if save_path:
+            plt.savefig(save_path)
+            plt.close(fig)
+            return None
+        
+        return fig
+    
+    def plot_contour(self, params: Optional[List[str]] = None, save_path: Optional[str] = None) -> Figure:
+        fig = optuna.visualization.matplotlib.plot_contour(self.study, params=params)
+        
+        if save_path:
+            plt.savefig(save_path)
+            plt.close(fig)
+            return None
+        
+        return fig
+    
+    def plot_slice(self, params: Optional[List[str]] = None, save_path: Optional[str] = None) -> Figure:
+        fig = optuna.visualization.matplotlib.plot_slice(self.study, params=params)
+        
+        if save_path:
+            plt.savefig(save_path)
+            plt.close(fig)
+            return None
+        
+        return fig
+    
+    def plot_edf(self, save_path: Optional[str] = None) -> Figure:
+        fig = optuna.visualization.matplotlib.plot_edf(self.study)
+        
+        if save_path:
+            plt.savefig(save_path)
+            plt.close(fig)
+            return None
+        
+        return fig
+    
+    def create_dashboard(self, save_path: str = "optimization_dashboard.png"):
+        fig = plt.figure(figsize=(20, 15))
+        
+        plt.subplot(2, 2, 1)
+        optuna.visualization.matplotlib.plot_optimization_history(self.study)
+        plt.title("Optimization History")
+        
+        plt.subplot(2, 2, 2)
+        optuna.visualization.matplotlib.plot_param_importances(self.study)
+        plt.title("Parameter Importances")
+        
+        plt.subplot(2, 2, 3)
+        optuna.visualization.matplotlib.plot_slice(self.study)
+        plt.title("Slice Plot")
+        
+        plt.subplot(2, 2, 4)
+        optuna.visualization.matplotlib.plot_contour(self.study)
+        plt.title("Contour Plot")
+        
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.close(fig)
+        
+        return save_path
+
+class RewardComponentVisualizer:
     def __init__(self):
-        self.log_data: List[Dict] = []
-        self.steps: List[int] = []
-
-    def log_iteration(self, weights: Dict[str, float], metrics: Dict[str, float], step: int):
-        """
-        Logs the weights and raw reward values for a single step.
-
-        Args:
-            weights: Dictionary mapping reward component names to their current weights.
-            metrics: Dictionary mapping reward component names to their raw values.
-            step: The current global step number.
-        """
-        log_entry = {'step': step}
-        # Prefix keys to distinguish weights and metrics
-        for name, weight in weights.items():
-            log_entry[f"weight_{name}"] = weight
-        for name, metric in metrics.items():
-            log_entry[f"metric_{name}"] = metric
-        self.log_data.append(log_entry)
-        # self.steps.append(step) # Redundant if step is in log_entry
-
-    def generate_dashboard(self, output_file: str = "reward_dashboard.html"):
-        """
-        Generates an interactive HTML dashboard using Plotly.
-        """
-        if not self.log_data:
-            print("No data logged to generate dashboard.")
-            return
-
-        df = pd.DataFrame(self.log_data)
-        df = df.sort_values(by='step').set_index('step')
-
-        if df.empty:
-            print("DataFrame is empty after processing log data.")
-            return
-
-        weight_cols = [col for col in df.columns if col.startswith('weight_')]
-        metric_cols = [col for col in df.columns if col.startswith('metric_')]
-
-        if not weight_cols and not metric_cols:
-            print("No weight or metric columns found in the data.")
-            return
-
-        num_plots = (1 if weight_cols else 0) + (1 if metric_cols else 0)
-        if num_plots == 0:
-             print("No data to plot.")
-             return
-
-        fig = make_subplots(rows=num_plots, cols=1, shared_xaxes=True,
-                            subplot_titles=("Reward Weights Over Time", "Raw Reward Metrics Over Time") if num_plots==2 else ("Reward Weights/Metrics Over Time",))
-
-        current_row = 1
-        # Plot Weights
-        if weight_cols:
-            for col in weight_cols:
-                component_name = col.replace('weight_', '')
-                fig.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines', name=f"Weight: {component_name}"),
-                              row=current_row, col=1)
-            current_row += 1
-
-        # Plot Metrics
-        if metric_cols:
-             for col in metric_cols:
-                 component_name = col.replace('metric_', '')
-                 fig.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines', name=f"Metric: {component_name}"),
-                               row=current_row, col=1)
-
-
-        fig.update_layout(
-            title_text="Reward Shaping Analysis",
-            hovermode="x unified",
-            height=300 * num_plots # Adjust height based on number of plots
-        )
-        fig.update_xaxes(title_text="Global Step")
-        # Update y-axis titles if needed
-        if weight_cols:
-             fig.update_yaxes(title_text="Weight Value", row=1, col=1)
-        if metric_cols:
-             fig.update_yaxes(title_text="Raw Reward Value", row=current_row if weight_cols else 1, col=1)
-
-
-        try:
-            fig.write_html(output_file)
-            print(f"Dashboard generated: {output_file}")
-        except Exception as e:
-            print(f"Error writing dashboard HTML file: {e}")
+        self.reward_history = {}
+        self.component_history = {}
+    
+    def record_reward(self, total_reward: float, component_rewards: Dict[str, float], step: int):
+        self.reward_history[step] = total_reward
+        
+        for component, value in component_rewards.items():
+            if component not in self.component_history:
+                self.component_history[component] = {}
+            self.component_history[component][step] = value
+    
+    def plot_reward_history(self, window_size: int = 1, save_path: Optional[str] = None) -> Figure:
+        fig = plt.figure(figsize=(12, 6))
+        ax = fig.add_subplot(111)
+        
+        steps = sorted(self.reward_history.keys())
+        rewards = [self.reward_history[step] for step in steps]
+        
+        if window_size > 1:
+            smoothed_rewards = []
+            for i in range(len(rewards)):
+                start_idx = max(0, i - window_size + 1)
+                smoothed_rewards.append(np.mean(rewards[start_idx:i+1]))
+            ax.plot(steps, smoothed_rewards, 'b-', label=f'Smoothed (window={window_size})')
+        
+        ax.plot(steps, rewards, 'k-', alpha=0.3, label='Raw')
+        
+        ax.set_xlabel('Step')
+        ax.set_ylabel('Total Reward')
+        ax.set_title('Reward History')
+        ax.legend()
+        ax.grid(True)
+        
+        if save_path:
+            plt.savefig(save_path)
+            plt.close(fig)
+            return None
+        
+        return fig
+    
+    def plot_component_contributions(self, save_path: Optional[str] = None) -> Figure:
+        fig = plt.figure(figsize=(12, 6))
+        ax = fig.add_subplot(111)
+        
+        steps = sorted(self.reward_history.keys())
+        
+        component_data = {}
+        for component, history in self.component_history.items():
+            component_data[component] = [history.get(step, 0.0) for step in steps]
+        
+        df = pd.DataFrame(component_data, index=steps)
+        df.plot.area(ax=ax, stacked=True, alpha=0.7)
+        
+        ax.set_xlabel('Step')
+        ax.set_ylabel('Reward Contribution')
+        ax.set_title('Component Contributions Over Time')
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        ax.grid(True)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path)
+            plt.close(fig)
+            return None
+        
+        return fig
+    
+    def plot_component_correlation(self, save_path: Optional[str] = None) -> Figure:
+        components = list(self.component_history.keys())
+        if len(components) < 2:
+            return None
+        
+        steps = sorted(self.reward_history.keys())
+        
+        data = {}
+        data['total'] = [self.reward_history[step] for step in steps]
+        
+        for component, history in self.component_history.items():
+            data[component] = [history.get(step, 0.0) for step in steps]
+        
+        df = pd.DataFrame(data)
+        
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(111)
+        
+        sns.heatmap(df.corr(), annot=True, cmap='coolwarm', ax=ax)
+        ax.set_title('Correlation Between Reward Components')
+        
+        if save_path:
+            plt.savefig(save_path)
+            plt.close(fig)
+            return None
+        
+        return fig
+    
+    def plot_component_distribution(self, save_path: Optional[str] = None) -> Figure:
+        components = list(self.component_history.keys())
+        if not components:
+            return None
+        
+        fig = plt.figure(figsize=(12, 6))
+        
+        for i, component in enumerate(components):
+            values = list(self.component_history[component].values())
+            
+            ax = fig.add_subplot(1, len(components), i+1)
+            sns.histplot(values, kde=True, ax=ax)
+            ax.set_title(f'{component} Distribution')
+            ax.set_xlabel('Reward Value')
+            ax.set_ylabel('Frequency')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path)
+            plt.close(fig)
+            return None
+        
+        return fig
+    
+    def create_dashboard(self, save_path: str = "reward_dashboard.png"):
+        fig = plt.figure(figsize=(20, 15))
+        
+        plt.subplot(2, 2, 1)
+        steps = sorted(self.reward_history.keys())
+        rewards = [self.reward_history[step] for step in steps]
+        plt.plot(steps, rewards, 'b-')
+        plt.title("Reward History")
+        plt.xlabel("Step")
+        plt.ylabel("Total Reward")
+        plt.grid(True)
+        
+        plt.subplot(2, 2, 2)
+        component_data = {}
+        for component, history in self.component_history.items():
+            component_data[component] = [history.get(step, 0.0) for step in steps]
+        df = pd.DataFrame(component_data, index=steps)
+        df.plot.area(stacked=True, alpha=0.7)
+        plt.title("Component Contributions")
+        plt.xlabel("Step")
+        plt.ylabel("Reward")
+        plt.grid(True)
+        
+        plt.subplot(2, 2, 3)
+        data = {}
+        data['total'] = [self.reward_history[step] for step in steps]
+        for component, history in self.component_history.items():
+            data[component] = [history.get(step, 0.0) for step in steps]
+        df = pd.DataFrame(data)
+        sns.heatmap(df.corr(), annot=True, cmap='coolwarm')
+        plt.title("Component Correlations")
+        
+        plt.subplot(2, 2, 4)
+        components = list(self.component_history.keys())
+        for component in components:
+            values = list(self.component_history[component].values())
+            plt.hist(values, alpha=0.5, label=component)
+        plt.title("Component Distributions")
+        plt.xlabel("Reward Value")
+        plt.ylabel("Frequency")
+        plt.legend()
+        
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.close(fig)
+        
+        return save_path
