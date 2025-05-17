@@ -14,9 +14,9 @@ setup(
         "bitsandbytes>=0.37.2",
         "tqdm",
         "numpy",
-        "plotly>=5.13.0",  # For visualization
-        "pandas>=1.5.0",   # For data handling
-        "scipy>=1.9.0"     # For optimization
+        "plotly>=5.13.0",  
+        "pandas>=1.5.0",  
+        "scipy>=1.9.0"     
     ],
     author="Your Name",
     author_email="your.email@example.com",

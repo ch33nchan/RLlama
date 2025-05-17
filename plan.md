@@ -145,3 +145,26 @@ The innovations in distributional rewards, memory-augmented reward shaping, and 
 The emphasis on integration ensures that RLlama will complement rather than compete with existing tools, making it an essential component in any serious RL practitioner's toolkit.
 
 Would you like me to elaborate on any specific aspect of this plan or provide more technical details for implementing certain components?
+
+
+current plan : 
+Summary of Status:
+
+- Completed/Largely Completed:
+  - BayesianRewardOptimizer implementation
+  - Optuna integration
+  - Visualization tools for optimization
+  - LLM alignment components (factuality, safety, etc.)
+  - PopArt normalization
+  - Adaptive normalization
+  - Practical examples/cookbook (via .py files)
+- Partially Completed/In Progress:
+  - Components for reasoning quality and consistency
+  - Cross-domain components (good start for games, robotics pending)
+  - Non-linear composition methods (foundational work done)
+  - Integration with TRL (interfaces for SB3, RLlib pending)
+  - Comprehensive API documentation
+- Not Started/Not Visible:
+  - Example notebooks (specifically .ipynb format) for integrations
+  - CI/CD pipeline
+  - Interactive tutorials
