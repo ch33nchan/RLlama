@@ -90,7 +90,7 @@ def evaluate_response_types(reward_components: Dict[str, Any], normalizer: Rewar
             component_scores[name] = score
         
         # Calculate total reward
-        total_reward = composer.calculate(state, None)
+        total_reward = composer.calculate(state, None) # Context is None for this example
         if normalizer:
             total_reward = normalizer.normalize(total_reward, "total")
         
@@ -112,27 +112,31 @@ def visualize_rewards(results: Dict[str, float], component_results: Dict[str, Di
     axes[0].bar(response_types, total_rewards, color='blue', alpha=0.7)
     axes[0].set_title('Total Reward by Response Type')
     axes[0].set_ylabel('Total Reward')
-    axes[0].set_xticklabels(response_types, rotation=45)
+    axes[0].set_xticklabels(response_types, rotation=45, ha="right")
     axes[0].grid(axis='y', linestyle='--', alpha=0.7)
     
     # Plot component rewards
     bar_width = 0.8 / len(component_names)
+    x_indices = np.arange(len(response_types))
+    
     for i, component in enumerate(component_names):
         component_values = [component_results[rt][component] for rt in response_types]
-        x_positions = np.arange(len(response_types)) + (i - len(component_names)/2 + 0.5) * bar_width
+        # Offset x_positions for grouped bar chart
+        x_positions = x_indices + (i - len(component_names)/2 + 0.5) * bar_width
         axes[1].bar(x_positions, component_values, width=bar_width, 
                    label=component, alpha=0.7)
     
     axes[1].set_title('Component Rewards by Response Type')
     axes[1].set_ylabel('Component Reward')
-    axes[1].set_xticks(np.arange(len(response_types)))
-    axes[1].set_xticklabels(response_types, rotation=45)
-    axes[1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3)
+    axes[1].set_xticks(x_indices) # Set x-ticks to be at the center of groups
+    axes[1].set_xticklabels(response_types, rotation=45, ha="right")
+    axes[1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.25), ncol=3) # Adjusted legend position
     axes[1].grid(axis='y', linestyle='--', alpha=0.7)
     
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0.05, 1, 1]) # Adjust layout to make space for legend
     plt.savefig(save_path)
     plt.close(fig)
+    print(f"LLM reward visualization saved to {save_path}")
     
     return save_path
 
@@ -147,32 +151,46 @@ def compare_normalization_methods(reward_components: Dict[str, Any], save_path: 
         "Standard": RewardNormalizer(method="standard"),
         "MinMax": RewardNormalizer(method="minmax"),
         "Robust": RewardNormalizer(method="robust"),
-        "Adaptive": AdaptiveNormalizer()
+        "Adaptive": AdaptiveNormalizer() # AdaptiveNormalizer might need more steps to adapt
     }
     
     all_results = {}
     
     for norm_name, normalizer in normalizers.items():
+        # For adaptive normalizer, simulate some steps to let it adapt
+        if isinstance(normalizer, AdaptiveNormalizer):
+            for _ in range(100): # Simulate 100 steps
+                state = simulate_llm_response("standard")
+                for comp_name, component in reward_components.items():
+                    score = component.calculate(state)
+                    normalizer.normalize(score, comp_name) # Adapt step
+                total_score = RewardComposer(reward_components).calculate(state, None)
+                normalizer.normalize(total_score, "total")
+
+
         results, _ = evaluate_response_types(reward_components, normalizer)
         all_results[norm_name] = [results[rt] for rt in response_types]
     
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(14, 7)) # Increased figure size
     
     bar_width = 0.8 / len(normalizers)
+    x_indices = np.arange(len(response_types))
+
     for i, (norm_name, values) in enumerate(all_results.items()):
-        x_positions = np.arange(len(response_types)) + (i - len(normalizers)/2 + 0.5) * bar_width
+        x_positions = x_indices + (i - len(normalizers)/2 + 0.5) * bar_width
         ax.bar(x_positions, values, width=bar_width, label=norm_name, alpha=0.7)
     
-    ax.set_title('Effect of Different Normalization Methods')
+    ax.set_title('Effect of Different Normalization Methods on Total Reward')
     ax.set_ylabel('Normalized Reward')
-    ax.set_xticks(np.arange(len(response_types)))
-    ax.set_xticklabels(response_types, rotation=45)
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=len(normalizers))
+    ax.set_xticks(x_indices)
+    ax.set_xticklabels(response_types, rotation=45, ha="right")
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.2), ncol=len(normalizers)) # Adjusted legend
     ax.grid(axis='y', linestyle='--', alpha=0.7)
     
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0.05, 1, 1]) # Adjust layout
     plt.savefig(save_path)
     plt.close(fig)
+    print(f"Normalization comparison visualization saved to {save_path}")
     
     return save_path
 
@@ -186,7 +204,7 @@ def main():
     concision = ConcisionReward(weight=0.8, target_length=250, tolerance=100)
     diversity = DiversityReward(weight=0.7)
     grounding = GroundingReward(weight=1.0, citation_bonus=0.2)
-    alignment = AlignmentReward(weight=1.3)
+    alignment = AlignmentReward(weight=1.3) # Assuming some alignment score is available
     
     # Combine components
     reward_components = {
@@ -201,76 +219,28 @@ def main():
         "alignment": alignment
     }
     
-    # Create normalizer
-    normalizer = AdaptiveNormalizer()
+    print("--- Evaluating without Normalization ---")
+    results_no_norm, component_results_no_norm = evaluate_response_types(reward_components)
+    visualize_rewards(results_no_norm, component_results_no_norm, "llm_rewards_no_norm.png")
     
-    print("Evaluating different response types...")
-    results, component_results = evaluate_response_types(reward_components, normalizer)
-    
-    print("\nResults:")
-    for response_type, reward in results.items():
-        print(f"  {response_type}: {reward:.4f}")
-    
-    print("\nVisualizing rewards...")
-    vis_path = visualize_rewards(results, component_results)
-    print(f"Visualization saved to {vis_path}")
-    
-    print("\nComparing normalization methods...")
-    norm_path = compare_normalization_methods(reward_components)
-    print(f"Normalization comparison saved to {norm_path}")
-    
-    # Test different composition methods
-    print("\nTesting different composition methods...")
-    composer = RewardComposer(reward_components)
-    
-    composition_methods = [
-        "linear", "multiplicative", "min", "max", 
-        "geometric_mean", "softmax"
-    ]
-    
-    composition_results = {}
-    
-    for method in composition_methods:
-        if method == "softmax":
-            composer.set_composition_method(method, temperature=0.5)
-        elif method == "geometric_mean":
-            composer.set_composition_method(method, offset=1.0)
-        else:
-            composer.set_composition_method(method)
-        
-        method_results = {}
-        for response_type in ["standard", "factual_error", "toxic", "perfect"]:
-            state = simulate_llm_response(response_type)
-            reward = composer.calculate(state, None)
-            method_results[response_type] = reward
-        
-        composition_results[method] = method_results
-    
-    # Visualize composition method comparison
-    fig, ax = plt.subplots(figsize=(12, 6))
-    
-    response_types = ["standard", "factual_error", "toxic", "perfect"]
-    bar_width = 0.8 / len(composition_methods)
-    
-    for i, method in enumerate(composition_methods):
-        values = [composition_results[method][rt] for rt in response_types]
-        x_positions = np.arange(len(response_types)) + (i - len(composition_methods)/2 + 0.5) * bar_width
-        ax.bar(x_positions, values, width=bar_width, label=method, alpha=0.7)
-    
-    ax.set_title('Effect of Different Composition Methods')
-    ax.set_ylabel('Reward')
-    ax.set_xticks(np.arange(len(response_types)))
-    ax.set_xticklabels(response_types, rotation=45)
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3)
-    ax.grid(axis='y', linestyle='--', alpha=0.7)
-    
-    plt.tight_layout()
-    plt.savefig("composition_comparison.png")
-    plt.close(fig)
-    
-    print("Composition method comparison saved to composition_comparison.png")
-    
-    print("\nAll examples completed successfully!")
+    print("\n--- Evaluating with Standard Normalization ---")
+    standard_normalizer = RewardNormalizer(method="standard")
+    # Warm up the normalizer
+    for _ in range(100): # Simulate 100 steps
+        state = simulate_llm_response("standard")
+        for comp_name, component in reward_components.items():
+            score = component.calculate(state)
+            standard_normalizer.normalize(score, comp_name) # Adapt step
+        total_score = RewardComposer(reward_components).calculate(state, None)
+        standard_normalizer.normalize(total_score, "total")
+
+    results_std_norm, component_results_std_norm = evaluate_response_types(reward_components, standard_normalizer)
+    visualize_rewards(results_std_norm, component_results_std_norm, "llm_rewards_std_norm.png")
+
+    print("\n--- Comparing Normalization Methods ---")
+    compare_normalization_methods(reward_components, "llm_normalization_comparison.png")
+
+    print("\nExample finished. Check the generated PNG files for visualizations.")
 
 if __name__ == "__main__":
     main()

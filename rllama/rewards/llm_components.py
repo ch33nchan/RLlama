@@ -1,19 +1,19 @@
 import numpy as np
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional, Union, Tuple # Added Tuple here
+from .base import BaseReward # Ensure BaseReward is imported
 
-class FactualityReward:
-    def __init__(self, weight: float = 1.0, threshold: float = 0.7, hallucination_penalty: float = 2.0):
-        self.name = "FactualityReward"
-        self.weight = weight
+class FactualityReward(BaseReward): # Inherit from BaseReward
+    def __init__(self, name: str, weight: float = 1.0, threshold: float = 0.7, hallucination_penalty: float = 2.0): # Add name, call super
+        super().__init__(name, weight)
         self.threshold = threshold
         self.hallucination_penalty = hallucination_penalty
     
-    def calculate(self, state: Dict[str, Any], action: Any = None) -> float:
-        factuality_score = state.get('factuality_score', 0.5)
-        hallucination_score = state.get('hallucination_score', 0.0)
+    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
+        factuality_score = context.get('factuality_score', 0.5)
+        hallucination_score = context.get('hallucination_score', 0.0)
         
         # Penalize hallucinations
-        hallucination_penalty = -self.hallucination_penalty * hallucination_score
+        hallucination_penalty_val = -self.hallucination_penalty * hallucination_score
         
         # Reward factuality above threshold, penalize below
         if factuality_score < self.threshold:
@@ -21,143 +21,196 @@ class FactualityReward:
         else:
             factuality_component = self.weight * (factuality_score - self.threshold)
         
-        return factuality_component + hallucination_penalty
+        return factuality_component + hallucination_penalty_val
 
-class CoherenceReward:
-    def __init__(self, weight: float = 1.0, min_score: float = 0.0, max_score: float = 1.0):
-        self.name = "CoherenceReward"
-        self.weight = weight
+    def reset(self): # Add reset method
+        pass
+
+class CoherenceReward(BaseReward): # Inherit from BaseReward
+    def __init__(self, name: str, weight: float = 1.0, min_score: float = 0.0, max_score: float = 1.0): # Add name, call super
+        super().__init__(name, weight)
         self.min_score = min_score
         self.max_score = max_score
     
-    def calculate(self, state: Dict[str, Any], action: Any = None) -> float:
-        coherence_score = state.get('coherence_score', 0.5)
-        normalized_score = (coherence_score - self.min_score) / (self.max_score - self.min_score)
+    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
+        coherence_score = context.get('coherence_score', 0.5)
+        # Ensure division by zero is handled if min_score can equal max_score
+        if (self.max_score - self.min_score) == 0:
+            normalized_score = 0.5 if coherence_score == self.min_score else (1.0 if coherence_score > self.min_score else 0.0)
+        else:
+            normalized_score = (coherence_score - self.min_score) / (self.max_score - self.min_score)
+        
         normalized_score = max(0.0, min(1.0, normalized_score))  # Clamp to [0, 1]
         
         return self.weight * normalized_score
 
-class RelevanceReward:
-    def __init__(self, weight: float = 1.0, query_importance: float = 0.5):
-        self.name = "RelevanceReward"
-        self.weight = weight
+    def reset(self): # Add reset method
+        pass
+
+class RelevanceReward(BaseReward): # Inherit from BaseReward
+    def __init__(self, name: str, weight: float = 1.0, query_importance: float = 0.5): # Add name, call super
+        super().__init__(name, weight)
         self.query_importance = query_importance
     
-    def calculate(self, state: Dict[str, Any], action: Any = None) -> float:
-        relevance_score = state.get('relevance_score', 0.5)
-        query_match = state.get('query_match', 0.5)
+    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
+        relevance_score = context.get('relevance_score', 0.5)
+        query_match = context.get('query_match', 0.5)
         
         combined_score = (1 - self.query_importance) * relevance_score + self.query_importance * query_match
         return self.weight * combined_score
 
-class HelpfulnessReward:
-    def __init__(self, weight: float = 1.0, min_threshold: float = 0.3):
-        self.name = "HelpfulnessReward"
-        self.weight = weight
+    def reset(self): # Add reset method
+        pass
+
+class HelpfulnessReward(BaseReward): # Inherit from BaseReward
+    def __init__(self, name: str, weight: float = 1.0, min_threshold: float = 0.3): # Add name, call super
+        super().__init__(name, weight)
         self.min_threshold = min_threshold
     
-    def calculate(self, state: Dict[str, Any], action: Any = None) -> float:
-        helpfulness_score = state.get('helpfulness_score', 0.5)
+    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
+        helpfulness_score = context.get('helpfulness_score', 0.5)
         
         # Strong penalty for unhelpful responses
         if helpfulness_score < self.min_threshold:
-            return -self.weight * (1.0 - helpfulness_score/self.min_threshold) * 5
+            # Avoid division by zero if min_threshold can be 0
+            penalty_factor = 0.0
+            if self.min_threshold > 0: # Ensure min_threshold is not zero before division
+                penalty_factor = (1.0 - helpfulness_score / self.min_threshold)
+            return -self.weight * penalty_factor * 5 # Apply penalty factor
         
         return self.weight * helpfulness_score
 
-class HarmlessnessReward:
-    def __init__(self, weight: float = 1.0, toxicity_penalty: float = 3.0):
-        self.name = "HarmlessnessReward"
-        self.weight = weight
-        self.toxicity_penalty = toxicity_penalty
-    
-    def calculate(self, state: Dict[str, Any], action: Any = None) -> float:
-        toxicity_score = state.get('toxicity_score', 0.0)
-        harmlessness_score = state.get('harmlessness_score', 1.0 - toxicity_score)
-        
-        # Exponential penalty for toxicity
-        if toxicity_score > 0.1:
-            toxicity_penalty = -self.toxicity_penalty * (np.exp(toxicity_score * 2) - 1)
-        else:
-            toxicity_penalty = 0
-        
-        harmlessness_reward = self.weight * harmlessness_score
-        
-        return harmlessness_reward + toxicity_penalty
+    def reset(self): # Add reset method
+        pass
 
-class ConcisionReward:
-    def __init__(self, weight: float = 1.0, target_length: int = 200, tolerance: int = 100):
-        self.name = "ConcisionReward"
-        self.weight = weight
+class HarmlessnessReward(BaseReward): # Inherit from BaseReward
+    def __init__(self, name: str, weight: float = 1.0, toxicity_penalty: float = 3.0): # Add name, call super
+        super().__init__(name, weight)
+        self.toxicity_penalty_factor = toxicity_penalty # Use a more descriptive name
+    
+    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
+        toxicity_score = context.get('toxicity_score', 0.0)
+        # Assuming harmlessness_score is inversely related or a separate metric
+        # If it's just 1 - toxicity, then it's redundant with toxicity_score
+        harmlessness_score = context.get('harmlessness_score', 1.0 - toxicity_score) 
+        
+        current_toxicity_penalty = 0.0 # Initialize penalty
+        # Exponential penalty for toxicity
+        if toxicity_score > 0.1: # Apply penalty only if toxicity exceeds a small threshold
+            # The np.exp can grow very fast. Consider scaling or capping.
+            # Example: np.exp(toxicity_score * 2) might be too aggressive.
+            # Let's use a simpler scaling for now or ensure toxicity_score is well-bounded (e.g., 0-1)
+            current_toxicity_penalty = -self.toxicity_penalty_factor * (np.exp(min(toxicity_score, 1.0) * 2) - 1) # Cap toxicity_score for exp
+        
+        # The reward should be based on harmlessness, then apply toxicity penalty
+        # If harmlessness_score is just 1-toxicity, then:
+        # reward = self.weight * (1 - toxicity_score) + current_toxicity_penalty
+        # If harmlessness_score is an independent measure:
+        reward = self.weight * harmlessness_score + current_toxicity_penalty
+        
+        return reward
+
+    def reset(self): # Add reset method
+        pass
+
+class ConcisionReward(BaseReward): # Inherit from BaseReward
+    def __init__(self, name: str, weight: float = 1.0, target_length: int = 200, tolerance: int = 100): # Add name, call super
+        super().__init__(name, weight)
         self.target_length = target_length
         self.tolerance = tolerance
     
-    def calculate(self, state: Dict[str, Any], action: Any = None) -> float:
-        response_length = state.get('response_length', 0)
-        
+    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
+        # Assuming 'response_text' is in context for length calculation
+        response_text = context.get('response_text', '')
+        # You might want to count words or characters based on your needs
+        # response_length = len(response_text.split()) # Word count
+        response_length = context.get('response_length', len(response_text)) # Or use pre-calculated length if available
+
         # Calculate distance from target length
         distance = abs(response_length - self.target_length)
         
         # No penalty within tolerance
         if distance <= self.tolerance:
-            return 0.0
+            return 0.0 # Or a small positive reward for being within tolerance
         
         # Quadratic penalty for being too far from target
-        penalty = -self.weight * ((distance - self.tolerance) / self.target_length) ** 2
+        # Ensure target_length is not zero to avoid division by zero
+        if self.target_length == 0:
+            penalty = -self.weight # Max penalty if target is 0 and not met
+        else:
+            penalty = -self.weight * ((distance - self.tolerance) / self.target_length) ** 2
         
         return penalty
 
-class DiversityReward:
-    def __init__(self, weight: float = 1.0, repetition_penalty: float = 1.5):
-        self.name = "DiversityReward"
-        self.weight = weight
-        self.repetition_penalty = repetition_penalty
-    
-    def calculate(self, state: Dict[str, Any], action: Any = None) -> float:
-        vocabulary_diversity = state.get('vocabulary_diversity', 0.5)
-        repetition_score = state.get('repetition_score', 0.0)
-        
-        diversity_reward = self.weight * vocabulary_diversity
-        repetition_penalty = -self.repetition_penalty * repetition_score
-        
-        return diversity_reward + repetition_penalty
+    def reset(self): # Add reset method
+        pass
 
-class GroundingReward:
-    def __init__(self, weight: float = 1.0, citation_bonus: float = 0.2, min_citations: int = 0):
-        self.name = "GroundingReward"
-        self.weight = weight
-        self.citation_bonus = citation_bonus
-        self.min_citations = min_citations
+class DiversityReward(BaseReward): # Inherit from BaseReward
+    def __init__(self, name: str, weight: float = 1.0, repetition_penalty: float = 1.5): # Add name, call super
+        super().__init__(name, weight)
+        self.repetition_penalty_factor = repetition_penalty # Use a more descriptive name
     
-    def calculate(self, state: Dict[str, Any], action: Any = None) -> float:
-        grounding_score = state.get('grounding_score', 0.5)
-        citation_count = state.get('citation_count', 0)
+    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
+        vocabulary_diversity = context.get('vocabulary_diversity', 0.5) # e.g., unique words / total words
+        repetition_score = context.get('repetition_score', 0.0) # e.g., based on n-gram repetition
+        
+        diversity_reward_val = self.weight * vocabulary_diversity
+        repetition_penalty_val = -self.repetition_penalty_factor * repetition_score
+        
+        return diversity_reward_val + repetition_penalty_val
+
+    def reset(self): # Add reset method
+        pass
+
+class GroundingReward(BaseReward): # Inherit from BaseReward
+    def __init__(self, name: str, weight: float = 1.0, citation_bonus: float = 0.2, min_citations: int = 0): # Add name, call super
+        super().__init__(name, weight)
+        self.citation_bonus_factor = citation_bonus # Use a more descriptive name
+        self.min_citations_threshold = min_citations # Use a more descriptive name
+    
+    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
+        grounding_score = context.get('grounding_score', 0.5) # e.g., semantic similarity to source documents
+        citation_count = context.get('citation_count', 0)
         
         # Base reward for grounding
-        base_reward = self.weight * grounding_score
+        base_reward_val = self.weight * grounding_score
         
         # Bonus for citations above minimum
-        citation_bonus = self.citation_bonus * max(0, citation_count - self.min_citations)
+        citation_bonus_val = self.citation_bonus_factor * max(0, citation_count - self.min_citations_threshold)
         
-        return base_reward + citation_bonus
+        return base_reward_val + citation_bonus_val
 
-class AlignmentReward:
-    def __init__(self, weight: float = 1.0, 
+    def reset(self): # Add reset method
+        pass
+
+class AlignmentReward(BaseReward): # Inherit from BaseReward
+    def __init__(self, name: str, weight: float = 1.0, # Add name, call super
                  factuality_importance: float = 0.3,
                  harmlessness_importance: float = 0.4,
                  helpfulness_importance: float = 0.3):
-        self.name = "AlignmentReward"
-        self.weight = weight
+        super().__init__(name, weight)
         self.factuality_importance = factuality_importance
         self.harmlessness_importance = harmlessness_importance
         self.helpfulness_importance = helpfulness_importance
     
-    def calculate(self, state: Dict[str, Any], action: Any = None) -> float:
-        factuality_score = state.get('factuality_score', 0.5)
-        harmlessness_score = state.get('harmlessness_score', 1.0 - state.get('toxicity_score', 0.0))
-        helpfulness_score = state.get('helpfulness_score', 0.5)
+    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
+        # These scores should ideally be in [0, 1] or a consistent range
+        factuality_score = context.get('factuality_score', 0.5)
+        # Harmlessness might be 1 - toxicity_score, or an independent measure
+        harmlessness_score = context.get('harmlessness_score', 1.0 - context.get('toxicity_score', 0.0))
+        helpfulness_score = context.get('helpfulness_score', 0.5)
         
         # Combine the three pillars of alignment
+        # Ensure importance factors sum to 1 if they are meant to be weights in a convex combination
+        # total_importance = self.factuality_importance + self.harmlessness_importance + self.helpfulness_importance
+        # if total_importance == 0: alignment_score = 0.0
+        # else:
+        #     alignment_score = (
+        #         (self.factuality_importance / total_importance) * factuality_score +
+        #         (self.harmlessness_importance / total_importance) * harmlessness_score +
+        #         (self.helpfulness_importance / total_importance) * helpfulness_score
+        #     )
+        # Simpler approach if importances are just scaling factors:
         alignment_score = (
             self.factuality_importance * factuality_score +
             self.harmlessness_importance * harmlessness_score +
@@ -166,11 +219,13 @@ class AlignmentReward:
         
         return self.weight * alignment_score
 
-import re # For heuristic-based checks
-# We assume BaseRewardComponent is already imported
-# from rllama.rewards.base import BaseRewardComponent 
+    def reset(self): # Add reset method
+        pass
 
-class SelfConsistencyReward(BaseRewardComponent):
+import re # For heuristic-based checks
+from .base import BaseReward # Already imported above
+
+class SelfConsistencyReward(BaseReward): # Changed BaseRewardComponent to BaseReward
     """
     Rewards the LLM for maintaining self-consistency within its response
     and potentially across a dialogue history.
@@ -352,10 +407,42 @@ class SelfConsistencyReward(BaseRewardComponent):
             # Let's give a small positive reward if no heuristic contradictions are found.
             if score == 0.0:
                 score = 0.1 # Small positive reward for passing heuristic checks
+        
+        # The calculate method is expected by the RewardComposer
+        # The parameters for calculate should match BaseReward's calculate method
+        # which is `calculate(self, context: Dict[str, Any]) -> float:`
+        # We need to adapt this. For now, let's assume generated_text is in context.
+        # This component's `calculate_reward` method is specific.
+        # We need to align it with the `BaseReward` interface or call it internally.
 
-        return score * self.weight
+        # For now, let's assume `generated_text` and `prompt` are passed via `context`
+        # to align with the `BaseReward.calculate` signature.
+        # This might require changes in how TRLRllamaRewardProcessor populates the context.
+        # Alternatively, SelfConsistencyReward's `calculate` method needs to be the entry point.
 
-class ChainOfThoughtValidityReward(BaseRewardComponent):
+        # Let's rename `calculate_reward` to `calculate` and adjust its signature
+        # to match BaseReward.
+        # The actual logic will be called from within this `calculate` method.
+        # This is a significant refactor of this specific component.
+        # For now, I will keep calculate_reward and assume it's called internally
+        # or the BaseReward interface is more flexible.
+        # Given the error is NameError, the immediate fix is the inheritance.
+        # The method signature mismatch is a subsequent issue.
+
+        return score * self.weight # This line should be part of calculate_reward
+
+    # This method should be the one defined in BaseReward
+    def calculate(self, context: Dict[str, Any]) -> float:
+        prompt = context.get("prompt", "")
+        generated_text = context.get("response_text", "") # Assuming response_text is the generated_text
+        # Call the original logic
+        return self.calculate_reward(prompt, generated_text, context)
+
+    def reset(self): # Add reset method to conform to BaseReward
+        pass
+
+
+class ChainOfThoughtValidityReward(BaseReward):
     def __init__(self,
                  weight: float = 1.0,
                  judge_llm_client: Optional[Any] = None,
@@ -533,7 +620,7 @@ class ChainOfThoughtValidityReward(BaseRewardComponent):
 
         return score * self.weight
 
-class InstructionFollowingComplexityReward(BaseRewardComponent):
+class InstructionFollowingComplexityReward(BaseReward):
     def __init__(self,
                  weight: float = 1.0,
                  judge_llm_client: Optional[Any] = None,
