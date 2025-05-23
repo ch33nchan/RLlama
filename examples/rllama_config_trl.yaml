@@ -1,0 +1,58 @@
+# RLlama Configuration for TRL Example
+
+# Global settings for RewardComposer and RewardShaper
+composer_settings:
+  normalization_strategy: 'mean_std'
+  norm_window: 1000
+  epsilon: 1.0e-8
+
+shaper_settings:
+  composition_strategy: 'additive'
+  default_weight: 0.0
+
+# This top-level components section is required
+components:
+  - name: "response_coherence"
+    class: "CoherenceReward"
+    params: 
+      min_score: 0.1
+      max_score: 0.9
+    config:
+      name: "response_coherence"
+      weight: 1.5
+
+  - name: "response_conciseness"
+    class: "ConcisionReward"
+    params:
+      target_length: 30   # Parameter expected by ConcisionReward
+      # tolerance: 20     # Add this if your ConcisionReward expects 'tolerance'
+                          # Remove length_type, reward_under_target, and max_penalty
+                          # as they are not standard ConcisionReward parameters unless you've modified the class
+    config:
+      name: "response_conciseness"  # Added missing name field
+      weight: 0.7
+
+  - name: "response_factuality"
+    class: "FactualityReward"
+    params: {} # Assuming FactualityReward takes no extra params other than name/weight
+    config:
+      name: "response_factuality" # Add name field if it was missing
+      weight: 2.0
+
+  - name: "avoid_repetition"
+    class: "DiversityReward"
+    params:
+      repetition_penalty: 1.5 # Changed from ngram_sizes. Adjust value as needed.
+                              # penalty_type was already commented out, which is fine.
+    config:
+      name: "avoid_repetition" 
+      weight: -0.5
+
+# Keep the reward_model section as well
+reward_model:
+  components:
+    - name: response_coherence
+      weight: 0.5
+      params:
+        min_score: 0.1
+        max_score: 0.9

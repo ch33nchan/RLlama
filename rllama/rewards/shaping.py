@@ -78,19 +78,29 @@ class RewardConfig:
 
 class RewardShaper:
     """Manages multiple RewardConfig instances and provides current weights."""
-    def __init__(self, shaping_configs: Dict[str, Dict[str, Any]]):
-        self.configs: Dict[str, RewardConfig] = {}
-        for name, params in shaping_configs.items():
-            try:
-                # Creates a RewardConfig for each entry in shaping_configs
-                self.configs[name] = RewardConfig(name=name, **params)
-            except Exception as e:
-                logger.error(f"Failed to initialize RewardConfig for '{name}' with params {params}: {e}", exc_info=True)
+    def __init__(self, component_reward_configs: Dict[str, RewardConfig], **kwargs): # MODIFIED signature
+        self.configs: Dict[str, RewardConfig] = component_reward_configs # MODIFIED: Use passed configs directly
         self._current_step = 0
+        
+        # Handle known global shaper settings from kwargs
+        self.composition_strategy = kwargs.get('composition_strategy', 'additive') # Default if not provided
+        self.output_normalization_strategy = kwargs.get('output_normalization_strategy', 'none')
+        self.output_norm_window = kwargs.get('output_norm_window', 100)
+        self.output_epsilon = kwargs.get('output_epsilon', 1e-8)
+        self.output_clip_range = kwargs.get('output_clip_range', None)
+        
         logger.info(f"RewardShaper initialized with configs for: {list(self.configs.keys())}")
+        logger.info(f"RewardShaper composition strategy: {self.composition_strategy}")
+        logger.info(f"RewardShaper output normalization: {self.output_normalization_strategy}")
+        
+        # Log any other unexpected kwargs if necessary
+        known_kwargs = {'composition_strategy', 'output_normalization_strategy', 'output_norm_window', 'output_epsilon', 'output_clip_range'}
+        other_params = {k: v for k, v in kwargs.items() if k not in known_kwargs}
+        if other_params:
+            logger.info(f"RewardShaper received additional unhandled parameters: {other_params}")
 
     def update_weights(self, current_step: int):
-        """Updates the internal step counter and recalculates weights (optional)."""
+        """Updates the internal step counter.""" # Docstring clarified
         self._current_step = current_step
         # Weights are calculated on demand in get_weights, so just update step
 

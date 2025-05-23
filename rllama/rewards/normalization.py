@@ -167,3 +167,129 @@ class AdaptiveNormalizer(RewardNormalizer):
             normalizer.reset(component_name)
         self.step_counter = 0
         self.current_phase = "exploration"
+
+import numpy as np
+from collections import deque
+import logging
+from typing import List, Union, Dict # Ensure Dict is imported
+
+logger = logging.getLogger(__name__)
+
+class Normalizer:
+    """
+    Handles normalization of reward values using various strategies.
+    """
+    def __init__(self, strategy: str = 'none', window_size: int = 100, epsilon: float = 1e-8):
+        """
+        Initializes the Normalizer.
+
+        Args:
+            strategy (str): Normalization strategy ('none', 'mean_std', 'min_max', 'running_mean_std').
+            window_size (int): Window size for running statistics or min/max.
+            epsilon (float): Small value to prevent division by zero.
+        """
+        self.strategy = strategy.lower()
+        self.window_size = window_size
+        self.epsilon = epsilon
+        
+        self.values_history = deque(maxlen=self.window_size)
+        self.mean = 0.0
+        self.std = 1.0
+        self.min_val = float('inf')
+        self.max_val = float('-inf')
+        self.count = 0
+
+        if self.strategy not in ['none', 'mean_std', 'min_max', 'running_mean_std']:
+            logger.warning(f"Unknown normalization strategy '{strategy}'. Defaulting to 'none'.")
+            self.strategy = 'none'
+
+        logger.debug(f"Normalizer initialized with strategy: {self.strategy}, window: {self.window_size}, epsilon: {self.epsilon}")
+
+    def update(self, values: Union[List[float], np.ndarray, float]):
+        """
+        Updates the normalizer's statistics with new reward values.
+
+        Args:
+            values (Union[List[float], np.ndarray, float]): A single value or a list/array of values.
+        """
+        if self.strategy == 'none':
+            return
+
+        if isinstance(values, (float, int)):
+            values = [float(values)]
+        
+        for value in values:
+            self.values_history.append(float(value))
+            self.count += 1
+
+            if self.strategy == 'running_mean_std':
+                # Welford's algorithm for running mean and variance
+                old_mean = self.mean
+                self.mean += (value - self.mean) / self.count if self.count > 0 else 0
+                if self.count > 1:
+                    # M2 is sum of squares of differences from the current mean
+                    # For simplicity, we'll recompute std from history if using running_mean_std with a window
+                    # A true Welford would update M2. For windowed, it's easier to recompute.
+                    pass # Recomputation happens in normalize_value if needed from history
+
+            elif self.strategy == 'min_max':
+                self.min_val = min(self.min_val, value)
+                self.max_val = max(self.max_val, value)
+
+    def normalize_value(self, value: float) -> float:
+        """
+        Normalizes a single reward value based on the current statistics.
+
+        Args:
+            value (float): The reward value to normalize.
+
+        Returns:
+            float: The normalized reward value.
+        """
+        if self.strategy == 'none' or not self.values_history:
+            return value
+
+        current_values = np.array(list(self.values_history))
+
+        if self.strategy == 'mean_std' or self.strategy == 'running_mean_std':
+            # For 'mean_std', always use the current window's stats
+            # For 'running_mean_std', if using a window, stats are from the window
+            mean = np.mean(current_values)
+            std = np.std(current_values)
+            if std < self.epsilon: # Avoid division by zero or near-zero std
+                return 0.0 # Or value, or (value - mean) / epsilon
+            return (value - mean) / (std + self.epsilon)
+        
+        elif self.strategy == 'min_max':
+            # Use min/max from the current window
+            min_v = np.min(current_values)
+            max_v = np.max(current_values)
+            if (max_v - min_v) < self.epsilon:
+                return 0.0 # Or 0.5 if you want to center it
+            return (value - min_v) / (max_v - min_v + self.epsilon)
+        
+        return value # Should not be reached if strategy is valid
+
+    def reset(self):
+        """Resets the normalizer's statistics."""
+        self.values_history.clear()
+        self.mean = 0.0
+        self.std = 1.0
+        self.min_val = float('inf')
+        self.max_val = float('-inf')
+        self.count = 0
+        logger.debug("Normalizer has been reset.")
+
+    def get_stats(self) -> Dict[str, Union[float, int]]:
+        """Returns current normalization statistics."""
+        if not self.values_history:
+            return {"mean": 0.0, "std": 1.0, "min": 0.0, "max": 0.0, "count": 0}
+        
+        current_values = np.array(list(self.values_history))
+        return {
+            "mean": np.mean(current_values),
+            "std": np.std(current_values),
+            "min": np.min(current_values),
+            "max": np.max(current_values),
+            "count": len(current_values)
+        }

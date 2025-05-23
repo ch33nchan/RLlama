@@ -1,45 +1,50 @@
-from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Dict, Any, Optional
 
-class BaseReward(ABC):
-    """Abstract base class for all reward components."""
-
-    def __init__(self, name: str):
+class BaseReward:
+    """
+    Base class for all reward components.
+    Each reward component must inherit from this class.
+    """
+    def __init__(self, name: str, weight: float = 1.0):
         """
-        Initializes the base reward component.
+        Initializes the reward component.
 
         Args:
-            name: The unique name identifier for this reward component.
+            name (str): The unique name of the reward component.
+                        This is typically the key used in configuration files.
+            weight (float): The weight assigned to this reward component,
+                            used by composers to scale its contribution.
         """
-        if not name:
-            raise ValueError("Reward component name cannot be empty.")
-        self._name = name # Store the name
+        if not isinstance(name, str) or not name:
+            raise ValueError("Reward component name must be a non-empty string.")
+        if not isinstance(weight, (int, float)):
+            raise ValueError("Reward component weight must be a number.")
+            
+        self.name = name
+        self.weight = weight
 
-    @property
-    @abstractmethod # Make name an abstract property if subclasses must implement it (though __init__ handles it now)
-    def name(self) -> str:
-        """Returns the name of the reward component."""
-        # If subclasses MUST implement the property getter, keep abstractmethod
-        # If __init__ is sufficient, this property could be concrete here:
-        # return self._name
-        # Let's assume subclasses should still define it for clarity or potential overrides
-        pass # Keep abstract for now, subclasses provide concrete @property
-
-    @abstractmethod
-    def __call__(self, state: Any, action: Any, next_state: Any, info: Dict[str, Any]) -> float:
+    def calculate(self, context: Dict[str, Any]) -> float:
         """
-        Calculates the reward value based on the given transition.
+        Calculates the reward value based on the given context.
+        Subclasses MUST implement this method.
 
         Args:
-            state: The state before the action.
-            action: The action taken.
-            next_state: The state after the action.
-            info: A dictionary containing auxiliary information (e.g., metrics).
-
+            context (Dict[str, Any]): A dictionary containing all necessary
+                                      information to calculate the reward.
         Returns:
-            The calculated reward value (float).
+            float: The calculated reward value.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement the 'calculate' method.")
+
+    def reset(self):
+        """
+        Resets any internal state of the reward component.
+        Optional: Subclasses can override this.
         """
         pass
 
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}(name='{self.name}', weight={self.weight})"
+
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(name='{self.name}')"
+        return self.__str__()
