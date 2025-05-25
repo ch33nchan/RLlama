@@ -115,17 +115,25 @@ class RewardConfigLoader:
 
         # 1. Instantiate components
         components_config = config.get('components', [])
-        components: List[BaseReward] = []
+        component_instances_list: List[BaseReward] = [] # Changed variable name for clarity
         for comp_cfg in components_config:
             # Make a copy to avoid modifying the original config dict during pop
-            comp_cfg_copy = comp_cfg.copy() 
-            comp_type = comp_cfg_copy.pop('type') 
+            comp_cfg_copy = comp_cfg.copy()
+            comp_type = comp_cfg_copy.pop('type')
             comp_name = comp_cfg_copy.pop('name', comp_type) # Pop name, default to type
 
+            # Extract the 'params' dictionary, if it exists
+            component_params = comp_cfg_copy.pop('params', {})
+
+            # Extract weight from the 'config' sub-dictionary if present
+            weight = 1.0 # Default weight
+            if 'config' in comp_cfg_copy and isinstance(comp_cfg_copy['config'], dict):
+                weight = comp_cfg_copy['config'].get('weight', 1.0)
+            comp_cfg_copy.pop('config', None) # Remove 'config' after extracting weight
+
             try:
-                comp_class = reward_registry.get(comp_type)
+                comp_class = reward_registry.get_class(comp_type)
                 if comp_class is None:
-                    # Try to get available components through available attributes
                     available = []
                     if hasattr(reward_registry, '_registry'):
                         available = list(reward_registry._registry.keys())
@@ -137,14 +145,16 @@ class RewardConfigLoader:
                         f"Available types: {', '.join(available) if available else 'None found'}"
                     )
                 
-                # Verify the component has all required parameters
                 if not hasattr(comp_class, '__init__'):
                     raise ValueError(f"Component class {comp_type} is not properly implemented")
-                    
-                # Instantiate the component, passing remaining config as kwargs
-                component_instance = comp_class(name=comp_name, **comp_cfg_copy)
-                components.append(component_instance)
-                logger.info(f"Successfully instantiated component: {comp_name} ({comp_type})")
+                                    
+                # Corrected line: Use component_params instead of params_section
+                init_kwargs = {**component_params, **comp_cfg_copy}
+
+                # Ensure component_instance is created correctly
+                component_instance = comp_class(name=comp_name, weight=weight, **init_kwargs)
+                component_instances_list.append(component_instance)
+                logger.info(f"Successfully instantiated component: {comp_name} ({comp_type}) with params: {init_kwargs}")
 
             except ValueError as e:
                 logger.error(f"Configuration error for component {comp_name}: {e}")
@@ -153,50 +163,75 @@ class RewardConfigLoader:
                 logger.error(f"Unexpected error initializing component {comp_name}: {e}")
                 raise
 
-        # 2. Get composer settings
-        composer_settings = config.get('composer_settings', {})
-        
-        # --- MODIFIED SECTION: Explicitly extract and pass arguments ---
-        # Extract specific arguments expected by RewardComposer.__init__
-        composer_components = components # Pass the list of instantiated components
-        composer_normalization_strategy = composer_settings.get('normalization_strategy', 'none')
-        composer_norm_window = composer_settings.get('norm_window', 100)
-        composer_epsilon = composer_settings.get('epsilon', 1e-8)
-        composer_clip_range = composer_settings.get('clip_range') # Optional
+        # Convert list of component instances to Dict[str, BaseReward] for RewardComposer
+        # The RewardComposer expects a dictionary where keys are component names.
+        # The BaseReward instances already have a .name attribute.
+        composer_components_dict: Dict[str, BaseReward] = { 
+            comp.name: comp for comp in component_instances_list 
+        }
 
-        # Collect any other settings for **kwargs in composer, excluding those explicitly handled
-        # This ensures only truly 'extra' args are passed via **kwargs
-        composer_extra_kwargs = {k: v for k, v in composer_settings.items() if k not in [
-            'components', # components are handled separately
-            'normalization_strategy',
-            'norm_window',
-            'epsilon',
-            'clip_range'
-            # Add any other keys from your YAML composer_settings that RewardComposer explicitly handles
-        ]}
+        # Extract weights for the RewardComposer from the original component configurations
+        # The RewardComposer's __init__ takes an optional 'weights' dict.
+        # The 'config' section in the YAML for each component contains its weight.
+        composer_weights: Dict[str, float] = {}
+        for comp_cfg in components_config: # Iterate over the raw component configs from YAML
+            comp_name = comp_cfg.get('name', comp_cfg.get('type')) # Get name as defined in YAML
+            weight = 1.0 # Default
+            if 'config' in comp_cfg and isinstance(comp_cfg['config'], dict):
+                weight = comp_cfg['config'].get('weight', 1.0)
+            if comp_name: # Ensure comp_name is valid
+                 composer_weights[comp_name] = weight
+
+        # 2. Get composer settings (these are currently not used by RewardComposer's __init__)
+        composer_settings = config.get('composer_settings', {})
+        # composer_normalization_strategy = composer_settings.get('normalization_strategy', 'none')
+        # composer_norm_window = composer_settings.get('norm_window', 100)
+        # composer_epsilon = composer_settings.get('epsilon', 1e-8)
+        # composer_clip_range = composer_settings.get('clip_range')
+        # composer_extra_kwargs = {k: v for k, v in composer_settings.items() if k not in [
+        #     'normalization_strategy', 'norm_window', 'epsilon', 'clip_range'
+        # ]}
 
         # 3. Instantiate RewardComposer
         try:
+            # Pass the dictionary of components and the extracted weights
             composer = RewardComposer(
-                components=composer_components,
-                normalization_strategy=composer_normalization_strategy,
-                norm_window=composer_norm_window,
-                epsilon=composer_epsilon,
-                clip_range=composer_clip_range,
-                **composer_extra_kwargs # Pass any remaining args
+                components=composer_components_dict,
+                weights=composer_weights
             )
             logger.info("Successfully instantiated RewardComposer.")
         except Exception as e:
             logger.error(f"Error instantiating RewardComposer: {e}", exc_info=True)
-            raise # Re-raise the error
+            raise
 
         # 4. Get shaper settings and instantiate RewardShaper
         shaper_settings = config.get('shaper_settings', {})
         
-        # Instantiate Shaper - assuming it takes its config as kwargs
-        # If Shaper also has specific arguments, you might need to extract them here too
+        # Create RewardConfig objects for each component
+        from rllama.rewards.shaping import RewardConfig
+        component_reward_configs = {}
+        
+        for comp_cfg in components_config:
+            comp_name = comp_cfg.get('name', comp_cfg.get('type'))
+            # Extract shaping configuration from the component config
+            shaping_config = comp_cfg.get('shaping', {})
+            
+            # Create RewardConfig with default values if not specified
+            reward_config = RewardConfig(
+                name=comp_name,
+                initial_weight=shaping_config.get('initial_weight', 1.0),
+                decay_schedule=shaping_config.get('decay_schedule', 'none'),
+                decay_rate=shaping_config.get('decay_rate', 0.0),
+                decay_steps=shaping_config.get('decay_steps', 0),
+                min_weight=shaping_config.get('min_weight', 0.0),
+                max_weight=shaping_config.get('max_weight', float('inf')),
+                start_step=shaping_config.get('start_step', 0)
+            )
+            component_reward_configs[comp_name] = reward_config
+        
+        # Instantiate Shaper with component_reward_configs as first argument
         try:
-             shaper = RewardShaper(**shaper_settings)
+             shaper = RewardShaper(component_reward_configs, **shaper_settings)
              logger.info("Successfully instantiated RewardShaper.")
         except Exception as e:
              logger.error(f"Error instantiating RewardShaper: {e}", exc_info=True)
