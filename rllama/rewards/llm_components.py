@@ -27,10 +27,11 @@ class FactualityReward(BaseReward): # Inherit from BaseReward
         pass
 
 class CoherenceReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, min_score: float = 0.0, max_score: float = 1.0): # Add name, call super
+    def __init__(self, name: str, weight: float = 1.0, min_score: float = 0.0, max_score: float = 1.0, **kwargs): # Add name, call super
         super().__init__(name, weight)
         self.min_score = min_score
         self.max_score = max_score
+        # Ignore any extra kwargs to make the component more flexible
     
     def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
         coherence_score = context.get('coherence_score', 0.5)
@@ -114,10 +115,11 @@ class HarmlessnessReward(BaseReward): # Inherit from BaseReward
         pass
 
 class ConcisionReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, target_length: int = 200, tolerance: int = 100): # Add name, call super
+    def __init__(self, name: str, weight: float = 1.0, target_length: int = 200, tolerance: int = 100, **kwargs): # Add name, call super
         super().__init__(name, weight)
         self.target_length = target_length
         self.tolerance = tolerance
+        # Ignore any extra kwargs
     
     def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
         # Assuming 'response_text' is in context for length calculation
@@ -146,9 +148,10 @@ class ConcisionReward(BaseReward): # Inherit from BaseReward
         pass
 
 class DiversityReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, repetition_penalty: float = 1.5): # Add name, call super
+    def __init__(self, name: str, weight: float = 1.0, repetition_penalty: float = 1.5, **kwargs): # Add name, call super
         super().__init__(name, weight)
-        self.repetition_penalty_factor = repetition_penalty # Use a more descriptive name
+        self.repetition_penalty_factor = repetition_penalty
+        # Ignore any extra kwargs
     
     def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
         vocabulary_diversity = context.get('vocabulary_diversity', 0.5) # e.g., unique words / total words

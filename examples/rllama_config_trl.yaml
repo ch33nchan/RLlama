@@ -13,7 +13,7 @@ shaper_settings:
 # This top-level components section is required
 components:
   - name: "response_coherence"
-    class: "CoherenceReward"
+    type: "CoherenceReward" # Changed 'class' to 'type'
     params: 
       min_score: 0.1
       max_score: 0.9
@@ -22,7 +22,7 @@ components:
       weight: 1.5
 
   - name: "response_conciseness"
-    class: "ConcisionReward"
+    type: "ConcisionReward" # Changed 'class' to 'type'
     params:
       target_length: 30   # Parameter expected by ConcisionReward
       # tolerance: 20     # Add this if your ConcisionReward expects 'tolerance'
@@ -33,14 +33,14 @@ components:
       weight: 0.7
 
   - name: "response_factuality"
-    class: "FactualityReward"
+    type: "FactualityReward" # Changed 'class' to 'type'
     params: {} # Assuming FactualityReward takes no extra params other than name/weight
     config:
       name: "response_factuality" # Add name field if it was missing
       weight: 2.0
 
   - name: "avoid_repetition"
-    class: "DiversityReward"
+    type: "DiversityReward" # Changed 'class' to 'type'
     params:
       repetition_penalty: 1.5 # Changed from ngram_sizes. Adjust value as needed.
                               # penalty_type was already commented out, which is fine.
