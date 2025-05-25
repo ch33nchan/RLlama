@@ -39,6 +39,7 @@ NUM_TRAIN_STEPS = 10 # Number of PPO steps for the example
 
 # --- 1. Define a simple dataset ---
 # Let's create a simple instruction-following or sentiment continuation task
+# Expand the prompts_data with more diverse examples
 prompts_data = {
     "prompt": [
         "Generate a positive review for a movie about a space adventure:",
@@ -46,10 +47,29 @@ prompts_data = {
         "Describe a delicious meal in a concise way:",
         "Continue this sentence with a factual statement: The capital of France is",
         "Explain the concept of gravity simply:",
-    ] * (BATCH_SIZE // 5 + 1) # Ensure we have enough for batch_size
+        "Write a helpful response about learning programming:",
+        "Describe the benefits of renewable energy:",
+        "Explain why exercise is important for health:",
+        "Write a creative story about time travel:",
+        "Describe how to make a simple sandwich:",
+        "Explain the water cycle in simple terms:",
+        "Write about the importance of friendship:",
+        "Describe a beautiful sunset:",
+        "Explain how plants grow:",
+        "Write about your favorite hobby:",
+        "Describe the process of making coffee:"
+    ] * 4  # Multiply to get enough samples
 }
-prompts_data["prompt"] = prompts_data["prompt"][:BATCH_SIZE] # Trim to BATCH_SIZE
 
+# Ensure we have at least 8 samples for training
+if len(prompts_data["prompt"]) < 8:
+    prompts_data["prompt"] = prompts_data["prompt"] * 2
+
+# Set a minimum batch size if BATCH_SIZE is too small
+min_samples = max(8, BATCH_SIZE) if 'BATCH_SIZE' in globals() and BATCH_SIZE > 0 else 8
+prompts_data["prompt"] = prompts_data["prompt"][:min_samples]
+
+print(f"Dataset size: {len(prompts_data['prompt'])} samples")
 dataset = Dataset.from_dict(prompts_data)
 
 def tokenize_fn(examples):

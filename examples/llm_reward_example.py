@@ -196,15 +196,15 @@ def compare_normalization_methods(reward_components: Dict[str, Any], save_path: 
 
 def main():
     # Create reward components
-    factuality = FactualityReward(weight=1.5, threshold=0.6)
-    coherence = CoherenceReward(weight=1.0)
-    relevance = RelevanceReward(weight=1.2, query_importance=0.6)
-    helpfulness = HelpfulnessReward(weight=1.0)
-    harmlessness = HarmlessnessReward(weight=2.0, toxicity_penalty=5.0)
-    concision = ConcisionReward(weight=0.8, target_length=250, tolerance=100)
-    diversity = DiversityReward(weight=0.7)
-    grounding = GroundingReward(weight=1.0, citation_bonus=0.2)
-    alignment = AlignmentReward(weight=1.3) # Assuming some alignment score is available
+    factuality = FactualityReward(name="factuality", weight=1.5, threshold=0.6)
+    coherence = CoherenceReward(name="coherence", weight=1.0)
+    relevance = RelevanceReward(name="relevance", weight=1.2, query_importance=0.6)
+    helpfulness = HelpfulnessReward(name="helpfulness", weight=1.0)
+    harmlessness = HarmlessnessReward(name="harmlessness", weight=2.0, toxicity_penalty=5.0)
+    concision = ConcisionReward(name="concision", weight=0.8, target_length=250, tolerance=100)
+    diversity = DiversityReward(name="diversity", weight=0.7)
+    grounding = GroundingReward(name="grounding", weight=1.0, citation_bonus=0.2)
+    alignment = AlignmentReward(name="alignment", weight=1.3) # Assuming some alignment score is available
     
     # Combine components
     reward_components = {
