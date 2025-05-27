@@ -73,24 +73,23 @@ def evaluate_response_types(reward_components: Dict[str, Any], normalizer: Rewar
         "repetitive", "too_long", "too_short", "perfect"
     ]
     
-    composer = RewardComposer(reward_components)
-    
     results = {}
     component_results = {}
     
     for response_type in response_types:
-        state = simulate_llm_response(response_type)
+        context = simulate_llm_response(response_type)
         
         # Calculate individual component rewards
         component_scores = {}
+        total_reward = 0.0
+        
         for name, component in reward_components.items():
-            score = component.calculate(state)
+            score = component.calculate(context)
             if normalizer:
                 score = normalizer.normalize(score, name)
             component_scores[name] = score
+            total_reward += score * component.weight
         
-        # Calculate total reward
-        total_reward = composer.calculate(state, None) # Context is None for this example
         if normalizer:
             total_reward = normalizer.normalize(total_reward, "total")
         
@@ -227,11 +226,13 @@ def main():
     standard_normalizer = RewardNormalizer(method="standard")
     # Warm up the normalizer
     for _ in range(100): # Simulate 100 steps
-        state = simulate_llm_response("standard")
+        context = simulate_llm_response("standard")
         for comp_name, component in reward_components.items():
-            score = component.calculate(state)
-            standard_normalizer.normalize(score, comp_name) # Adapt step
-        total_score = RewardComposer(reward_components).calculate(state, None)
+            score = component.calculate(context)
+            standard_normalizer.normalize(score, comp_name)
+        # Calculate total manually instead of using RewardComposer
+        total_score = sum(component.calculate(context) * component.weight 
+                         for component in reward_components.values())
         standard_normalizer.normalize(total_score, "total")
 
     results_std_norm, component_results_std_norm = evaluate_response_types(reward_components, standard_normalizer)

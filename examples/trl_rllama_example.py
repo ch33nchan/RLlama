@@ -41,7 +41,7 @@ NUM_TRAIN_STEPS = 10 # Number of PPO steps for the example
 # Let's create a simple instruction-following or sentiment continuation task
 # Expand the prompts_data with more diverse examples
 prompts_data = {
-    "prompt": [
+    "query": [  # Changed from "prompt" to "query"
         "Generate a positive review for a movie about a space adventure:",
         "Write a short, coherent story about a friendly robot:",
         "Describe a delicious meal in a concise way:",
@@ -61,17 +61,18 @@ prompts_data = {
     ] * 4  # Multiply to get enough samples
 }
 
-# Ensure we have at least 8 samples for training
-if len(prompts_data["prompt"]) < 8:
-    prompts_data["prompt"] = prompts_data["prompt"] * 2
+# Ensure we have at least BATCH_SIZE samples for training
+if len(prompts_data["query"]) < BATCH_SIZE:
+    prompts_data["query"] = prompts_data["query"] * ((BATCH_SIZE // len(prompts_data["query"])) + 1)
 
-# Set a minimum batch size if BATCH_SIZE is too small
-min_samples = max(8, BATCH_SIZE) if 'BATCH_SIZE' in globals() and BATCH_SIZE > 0 else 8
-prompts_data["prompt"] = prompts_data["prompt"][:min_samples]
+# Trim to exact batch size
+prompts_data["query"] = prompts_data["query"][:BATCH_SIZE]
 
-print(f"Dataset size: {len(prompts_data['prompt'])} samples")
+print(f"Dataset size: {len(prompts_data['query'])} samples")
 dataset = Dataset.from_dict(prompts_data)
 
+# Remove the tokenize_fn function and tokenization step
+# The PPOTrainer will handle tokenization internally
 def tokenize_fn(examples):
     return tokenizer(examples["prompt"], truncation=True, padding="max_length", max_length=128) # Max prompt length
 
@@ -144,21 +145,25 @@ print(f"\nStarting TRL training with RLlama rewards for {NUM_TRAIN_STEPS} steps.
 
 for step in tqdm(range(NUM_TRAIN_STEPS), desc="PPO Training Steps"):
     # Get a batch of queries (prompts)
-    # Using PPO trainer's internal dataloader if dataset was provided
     try:
         batch = next(iter(ppo_trainer.dataloader))
-        query_texts = batch["query"] # 'query' is the default TRL name for prompt text
-        query_tensors = batch["input_ids"].to(device)
+        query_texts = batch["query"]
+        # Tokenize properly for PPO
+        query_tensors = []
+        for query in query_texts:
+            tokens = tokenizer.encode(query, return_tensors="pt").squeeze(0)
+            query_tensors.append(tokens)
     except Exception as e:
         print(f"Error getting batch from dataloader: {e}")
-        # Fallback for manual batching if dataloader setup is tricky
+        # Fallback for manual batching
         sample_indices = torch.randint(0, len(dataset), (BATCH_SIZE,)).tolist()
-        query_texts = [dataset[i]["prompt"] for i in sample_indices]
-        query_tensors = tokenizer(query_texts, return_tensors="pt", padding=True, truncation=True, max_length=128).input_ids.to(device)
-
+        query_texts = [dataset[i]["query"] for i in sample_indices]
+        query_tensors = []
+        for query in query_texts:
+            tokens = tokenizer.encode(query, return_tensors="pt").squeeze(0)
+            query_tensors.append(tokens)
 
     # Generate responses from the model
-    # response_tensors: list of tensors, one for each prompt
     response_tensors = ppo_trainer.generate(query_tensors, return_prompt=False, **generation_kwargs)
     
     # Decode responses into text
