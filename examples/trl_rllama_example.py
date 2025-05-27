@@ -166,53 +166,40 @@ for step in tqdm(range(NUM_TRAIN_STEPS), desc="PPO Training Steps"):
     # Generate responses from the model
     response_tensors = ppo_trainer.generate(query_tensors, return_prompt=False, **generation_kwargs)
     
-    # Decode responses into text
-    # response_texts will be a list of strings
+    # Decode responses to text
     response_texts = tokenizer.batch_decode(response_tensors, skip_special_tokens=True)
 
     # Compute rewards using RLlama
-    # model_specific_infos can be used if your components need e.g. logprobs from the generation
-    # For now, we pass None.
     try:
         rewards_tensor = rllama_processor.compute_rewards(
             prompts_text=query_texts,
             responses_text=response_texts,
             model_specific_infos=None 
         )
-        rewards = [r.item() for r in rewards_tensor] # Convert to list of Python floats for TRL
+        rewards = [r.item() for r in rewards_tensor]  # Convert to list of Python floats
     except Exception as e:
         print(f"Error computing RLlama rewards: {e}")
-        # Fallback to dummy rewards if RLlama fails, to allow TRL loop to continue for debugging
-        rewards = [torch.tensor(0.0) for _ in query_texts]
-
+        # Fallback to dummy rewards
+        rewards = [0.0 for _ in query_texts]  # Use float values, not tensors
 
     # Perform PPO step
-    # The `step` method takes tokenized queries, tokenized responses, and rewards
     try:
-        stats = ppo_trainer.step(query_tensors.tolist(), response_tensors.tolist(), rewards) # TRL expects lists of tensors
+        # query_tensors and response_tensors are already lists, don't call .tolist()
+        stats = ppo_trainer.step(query_tensors, response_tensors, rewards)
         ppo_trainer.log_stats(stats, {"query": query_texts, "response": response_texts}, rewards)
         
-        if step % 1 == 0: # Log every step for this example
+        if step % 1 == 0:
             print(f"\n--- Step {step+1}/{NUM_TRAIN_STEPS} ---")
-            print(f"  Mean PPO reward: {stats.get('ppo/mean_scores', 'N/A'):.3f}") # TRL uses 'ppo/mean_scores' for rewards
+            print(f"  Mean PPO reward: {stats.get('ppo/mean_scores', 'N/A'):.3f}")
             print(f"  Objective/kl: {stats.get('objective/kl', 'N/A'):.3f}")
             print(f"  Example Query: {query_texts[0][:100]}...")
             print(f"  Example Response: {response_texts[0][:100]}...")
-            print(f"  Example RLlama Reward: {rewards[0]:.3f}")
-            
-            # Inspect detailed RLlama rewards for the first item in batch
-            detailed_rewards_info = rllama_processor.get_last_batch_detailed_infos()
-            if detailed_rewards_info:
-                print(f"  RLlama Details (first item):")
-                for k, v in detailed_rewards_info[0].items():
-                    if k not in ["prompt", "response"]: # Avoid re-printing long texts
-                         print(f"    {k}: {v}")
+            print(f"  Example Reward: {rewards[0]:.3f}")
             
     except Exception as e:
         print(f"Error during PPO step: {e}")
-        import traceback
-        traceback.print_exc()
         print("Skipping PPO step due to error.")
+        continue
 
     # Reset RLlama components (e.g., normalizer stats) periodically if needed
     if (step + 1) % 50 == 0: # Example: reset every 50 steps

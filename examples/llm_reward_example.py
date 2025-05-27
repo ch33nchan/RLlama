@@ -150,7 +150,7 @@ def compare_normalization_methods(reward_components: Dict[str, Any], save_path: 
         "Standard": RewardNormalizer(method="standard"),
         "MinMax": RewardNormalizer(method="minmax"),
         "Robust": RewardNormalizer(method="robust"),
-        "Adaptive": AdaptiveNormalizer() # AdaptiveNormalizer might need more steps to adapt
+        "Adaptive": AdaptiveNormalizer()
     }
     
     all_results = {}
@@ -158,14 +158,15 @@ def compare_normalization_methods(reward_components: Dict[str, Any], save_path: 
     for norm_name, normalizer in normalizers.items():
         # For adaptive normalizer, simulate some steps to let it adapt
         if isinstance(normalizer, AdaptiveNormalizer):
-            for _ in range(100): # Simulate 100 steps
-                state = simulate_llm_response("standard")
+            for _ in range(100):
+                context = simulate_llm_response("standard")
                 for comp_name, component in reward_components.items():
-                    score = component.calculate(state)
-                    normalizer.normalize(score, comp_name) # Adapt step
-                total_score = RewardComposer(reward_components).calculate(state, None)
+                    score = component.calculate(context)
+                    normalizer.normalize(score, comp_name)
+                # Calculate total manually instead of using RewardComposer
+                total_score = sum(component.calculate(context) * component.weight 
+                                for component in reward_components.values())
                 normalizer.normalize(total_score, "total")
-
 
         results, _ = evaluate_response_types(reward_components, normalizer)
         all_results[norm_name] = [results[rt] for rt in response_types]
