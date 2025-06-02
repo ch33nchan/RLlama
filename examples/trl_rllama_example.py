@@ -110,12 +110,12 @@ model.to(device)
 try:
     rllama_processor = TRLRllamaRewardProcessor(
         rllama_config_path=RLLAMA_CONFIG_PATH,
-        auto_register_llm_components=True # Assumes this function exists and works
+        auto_register_llm_components=True
     )
     print(f"RLlama processor initialized with config: {RLLAMA_CONFIG_PATH}")
 except Exception as e:
     print(f"Error initializing RLlama processor: {e}")
-    print("Please ensure that the LLM reward components specified in the YAML (e.g., CoherenceReward, ConcisionReward, DiversityReward) are implemented in rllama.rewards.llm_components and that they can be registered by TRLRllamaRewardProcessor or are manually registered.")
+    print("Please ensure that the LLM reward components are properly implemented.")
     sys.exit(1)
 
 
@@ -146,22 +146,16 @@ print(f"\nStarting TRL training with RLlama rewards for {NUM_TRAIN_STEPS} steps.
 for step in tqdm(range(NUM_TRAIN_STEPS), desc="PPO Training Steps"):
     # Get a batch of queries (prompts)
     try:
-        batch = next(iter(ppo_trainer.dataloader))
-        query_texts = batch["query"]
-        # Tokenize properly for PPO
-        query_tensors = []
-        for query in query_texts:
-            tokens = tokenizer.encode(query, return_tensors="pt").squeeze(0)
-            query_tensors.append(tokens)
-    except Exception as e:
-        print(f"Error getting batch from dataloader: {e}")
-        # Fallback for manual batching
-        sample_indices = torch.randint(0, len(dataset), (BATCH_SIZE,)).tolist()
+        # Sample a batch of queries
+        sample_indices = torch.randperm(len(dataset))[:BATCH_SIZE].tolist()
         query_texts = [dataset[i]["query"] for i in sample_indices]
         query_tensors = []
         for query in query_texts:
-            tokens = tokenizer.encode(query, return_tensors="pt").squeeze(0)
-            query_tensors.append(tokens)
+            query_tensor = tokenizer.encode(query, return_tensors="pt").to(device)
+            query_tensors.append(query_tensor.squeeze())
+    except Exception as e:
+        print(f"Error preparing queries: {e}")
+        continue
 
     # Generate responses from the model
     response_tensors = ppo_trainer.generate(query_tensors, return_prompt=False, **generation_kwargs)
@@ -169,36 +163,35 @@ for step in tqdm(range(NUM_TRAIN_STEPS), desc="PPO Training Steps"):
     # Decode responses to text
     response_texts = tokenizer.batch_decode(response_tensors, skip_special_tokens=True)
 
-    # Compute rewards using RLlama
+    # --- 4. Compute rewards using RLlama ---
     try:
-        rewards_tensor = rllama_processor.compute_rewards(
+        # Use the correct method name - likely 'compute_rewards' or 'process_rewards'
+        rewards = rllama_processor.compute_rewards(
             prompts_text=query_texts,
             responses_text=response_texts,
-            model_specific_infos=None 
+            model_specific_infos=None
         )
-        rewards = [r.item() for r in rewards_tensor]  # Convert to list of Python floats
+        # Convert to list of individual tensors (not a single tensor)
+        scores = [torch.tensor([r], dtype=torch.float32, device=device) for r in rewards]
     except Exception as e:
         print(f"Error computing RLlama rewards: {e}")
-        # Fallback to dummy rewards
-        rewards = [0.0 for _ in query_texts]  # Use float values, not tensors
+        rewards = [0.0 for _ in query_texts]
+        scores = [torch.tensor([0.0], dtype=torch.float32, device=device) for _ in rewards]
 
-    # Perform PPO step
+    # --- 5. Perform PPO step ---
     try:
-        # query_tensors and response_tensors are already lists, don't call .tolist()
-        stats = ppo_trainer.step(query_tensors, response_tensors, rewards)
-        ppo_trainer.log_stats(stats, {"query": query_texts, "response": response_texts}, rewards)
+        stats = ppo_trainer.step(query_tensors, response_tensors, scores)
         
         if step % 1 == 0:
             print(f"\n--- Step {step+1}/{NUM_TRAIN_STEPS} ---")
-            print(f"  Mean PPO reward: {stats.get('ppo/mean_scores', 'N/A'):.3f}")
-            print(f"  Objective/kl: {stats.get('objective/kl', 'N/A'):.3f}")
+            print(f"  Mean PPO reward: {stats.get('ppo/mean_scores', 'N/A')}")
+            print(f"  Objective/kl: {stats.get('objective/kl', 'N/A')}")
             print(f"  Example Query: {query_texts[0][:100]}...")
             print(f"  Example Response: {response_texts[0][:100]}...")
             print(f"  Example Reward: {rewards[0]:.3f}")
             
     except Exception as e:
         print(f"Error during PPO step: {e}")
-        print("Skipping PPO step due to error.")
         continue
 
     # Reset RLlama components (e.g., normalizer stats) periodically if needed
@@ -222,23 +215,3 @@ print("\nTraining finished.")
 # print(f"Prompt: {test_prompt}")
 # print(f"Generated: {generated_text}")
 
-# The following lines are redundant as rllama_processor is initialized earlier in a try-except block.
-# This block was likely added during previous debugging attempts and should be removed.
-# --- 3. Initialize RLlama Reward Processor ---
-# # This processor will use the rllama_config_trl.yaml to calculate rewards
-# # Presuming TRLRllamaRewardProcessor is the class from the error
-# # and it expects a 'config_path' argument in its __init__ method.
-# 
-# # import yaml # Make sure to import yaml # This import is already at the top if needed
-# 
-# # config_file_path = "/Users/cheencheen/Desktop/git/rl/RLlama/examples/rllama_config_trl.yaml" # This is already defined as RLLAMA_CONFIG_PATH
-# 
-# # with open(config_file_path, 'r') as f:
-# #     full_config_data = yaml.safe_load(f)
-#     
-# # # reward_processor = TRLRllamaRewardProcessor(reward_configs=some_variable_that_is_not_expected) # OLD LINE
-# # reward_processor = TRLRllamaRewardProcessor(config=full_config_data) # NEW LINE # This was a previous attempt to fix a different issue
-# 
-# # Or, if the class is named differently, use that name.
-# # For example, if it's just RewardProcessor:
-# # reward_processor = RewardProcessor(config_path=config_file_path)
