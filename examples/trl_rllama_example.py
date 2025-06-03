@@ -165,18 +165,17 @@ for step in tqdm(range(NUM_TRAIN_STEPS), desc="PPO Training Steps"):
 
     # --- 4. Compute rewards using RLlama ---
     try:
-        # Use the correct method name - likely 'compute_rewards' or 'process_rewards'
+        # Use the correct method name
         rewards = rllama_processor.compute_rewards(
             prompts_text=query_texts,
             responses_text=response_texts,
             model_specific_infos=None
         )
-        # Convert to list of individual tensors (not a single tensor)
-        scores = [torch.tensor([r], dtype=torch.float32, device=device) for r in rewards]
+        scores = [torch.tensor(float(r), dtype=torch.float32, device=device) for r in rewards]
     except Exception as e:
         print(f"Error computing RLlama rewards: {e}")
         rewards = [0.0 for _ in query_texts]
-        scores = [torch.tensor([0.0], dtype=torch.float32, device=device) for _ in rewards]
+        scores = [torch.tensor(0.0, dtype=torch.float32, device=device) for _ in rewards]
 
     # --- 5. Perform PPO step ---
     try:
