@@ -56,3 +56,39 @@ reward_model:
       params:
         min_score: 0.1
         max_score: 0.9
+
+composer:
+  components:
+    - type: "CoherenceReward"
+      weight: 1.0
+      schedule:
+        type: "constant"
+    
+    - type: "HelpfulnessReward"
+      weight: 0.8
+      schedule:
+        type: "constant"
+    
+    - type: "DiversityReward"
+      weight: 0.6
+      schedule:
+        type: "exponential_decay"
+        decay_rate: 0.98
+    
+    - type: "ConcisenessReward"
+      weight: 0.4
+      
+    - type: "LengthReward"
+      weight: 0.3
+      
+    - type: "EntropyBonus"
+      weight: 0.5
+      schedule:
+        type: "linear_decay"
+        decay_steps: 50
+
+shaper:
+  normalization_method: "standard"  # Options: none, standard, minmax, robust
+
+optimizer:
+  enabled: false

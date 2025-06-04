@@ -199,6 +199,21 @@ for step in tqdm(range(NUM_TRAIN_STEPS), desc="PPO Training Steps"):
 
 print("\nTraining finished.")
 
+# --- Analysis and Visualization ---
+print("\n=== RLlama Analysis ===")
+analysis = rllama_processor.get_component_analysis()
+print(f"Total training steps: {analysis.get('total_steps', 0)}")
+print("\nComponent average contributions:")
+for comp_name, avg_reward in analysis.get('avg_rewards', {}).items():
+    print(f"  {comp_name}: {avg_reward:.4f}")
+
+# Get detailed info from last batch
+last_batch = rllama_processor.get_last_batch_detailed_infos()
+if last_batch:
+    print(f"\nLast batch (Step {last_batch.get('step', 'N/A')}):")
+    print(f"  Raw rewards: {[f'{r:.3f}' for r in last_batch.get('raw_rewards', [])]}")
+    print(f"  Normalized rewards: {[f'{r:.3f}' for r in last_batch.get('normalized_rewards', [])]}")
+
 # --- Optional: Save the model ---
 # output_dir = "./trl_rllama_finetuned_model"
 # model.save_pretrained(output_dir)
