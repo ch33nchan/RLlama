@@ -61,11 +61,18 @@ composer:
   components:
     - type: "CoherenceReward"
       weight: 1.0
+      params:
+        min_sentences: 2
+        transition_bonus: 0.2
+        structure_penalty: 0.3
       schedule:
         type: "constant"
     
     - type: "HelpfulnessReward"
       weight: 0.8
+      params:
+        overlap_weight: 0.7
+        question_bonus: 0.3
       schedule:
         type: "constant"
     
@@ -77,18 +84,48 @@ composer:
     
     - type: "ConcisenessReward"
       weight: 0.4
+      params:
+        optimal_min: 5
+        optimal_max: 25
       
     - type: "LengthReward"
       weight: 0.3
+      params:
+        optimal_length: 20
+        tolerance: 0.3
       
     - type: "EntropyBonus"
       weight: 0.5
       schedule:
         type: "linear_decay"
         decay_steps: 50
+    
+    - type: "RepetitionPenalty"
+      weight: 0.4
+      params:
+        ngram_size: 3
+        penalty_weight: 2.0
+    
+    - type: "ReadabilityReward"
+      weight: 0.3
+      params:
+        optimal_sentence_length: [10, 20]
+    
+    - type: "ToxicityReward"
+      weight: 1.0
 
 shaper:
-  normalization_method: "standard"  # Options: none, standard, minmax, robust
+  normalization_method: "standard"  # Options: none, standard, minmax, robust, sigmoid
+  params:
+    epsilon: 1e-8  # For numerical stability
 
 optimizer:
   enabled: false
+  method: "optuna"
+  trials: 100
+  objectives: ["reward_mean", "reward_std"]
+
+logging:
+  level: "INFO"
+  save_analysis: true
+  analysis_file: "rllama_analysis.json"

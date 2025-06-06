@@ -1,84 +1,93 @@
-import gymnasium as gym
-from gymnasium import spaces
+import gym
 import numpy as np
-from typing import Dict, Any, Tuple, Optional, Union
-from rllama.rewards import RewardComposer, RewardShaper, RewardConfigLoader
+from typing import Dict, Any, Optional, List
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.callbacks import BaseCallback
+import yaml
 
-class SB3RllamaWrapper(gym.Wrapper):
+from ..core.composer import RewardComposer
+from ..core.shaper import RewardShaper
+
+class RLlamaRewardWrapper(gym.Wrapper):
     """
-    A Stable Baselines3 wrapper to integrate RLlama reward shaping.
+    Stable Baselines3 wrapper for RLlama reward processing
     """
-    def __init__(self, env: gym.Env, rllama_config_path: str, 
-                 rllama_components: Optional[Dict[str, Any]] = None, # For programmatic component registration
-                 pass_full_info_to_rllama: bool = True):
+    
+    def __init__(self, env: gym.Env, config_path: str):
         super().__init__(env)
-        self.rllama_config_loader = RewardConfigLoader(config_path=rllama_config_path)
         
-        # Load components, composer, shaper from config
-        # Assuming RewardConfigLoader has methods to instantiate these
-        # Or, you might instantiate them directly here based on loaded config dict
-        config_dict = self.rllama_config_loader.load_config()
-
-        # Allow programmatic registration/override of components if needed
-        # For simplicity, assuming components are registered globally or handled by RewardConfigLoader
+        # Load RLlama configuration
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
         
-        self.composer: RewardComposer = self.rllama_config_loader.create_composer(config_dict)
-        self.shaper: RewardShaper = self.rllama_config_loader.create_shaper(config_dict)
-
-        self.pass_full_info_to_rllama = pass_full_info_to_rllama
-        self._last_obs = None
-        self._last_action = None # Store last action for context
-
-    def reset(self, **kwargs) -> Tuple[Any, Dict[str, Any]]:
-        self._last_obs, info = self.env.reset(**kwargs)
-        self._last_action = None # Reset last action on episode start
-        self.composer.reset()
-        self.shaper.reset()
-        return self._last_obs, info
-
-    def step(self, action: Any) -> Tuple[Any, float, bool, bool, Dict[str, Any]]:
-        next_obs, base_reward, terminated, truncated, info = self.env.step(action)
-        done = terminated or truncated
-
-        rllama_context = {
-            "state": self._last_obs,
-            "action": action,
-            "next_state": next_obs,
-            "base_reward": base_reward,
-            "done": done,
-            "info": info if self.pass_full_info_to_rllama else {},
-            "previous_action": self._last_action, # Example of adding more context
-            # Add other relevant context items your components might need
-        }
+        # Initialize RLlama components
+        self.composer = RewardComposer(config.get('composer', {}))
+        self.shaper = RewardShaper(config.get('shaper', {}))
         
-        # Get raw and normalized rewards from composer
-        _, raw_comp_rewards, norm_comp_rewards = self.composer.calculate_reward(**rllama_context)
+        # Track statistics
+        self.episode_rewards = []
+        self.step_count = 0
+    
+    def step(self, action):
+        """Step function with RLlama reward processing"""
+        obs, reward, done, info = self.env.step(action)
         
-        # Get final shaped reward from shaper
-        shaped_reward = self.shaper.shape_reward(
-            component_rewards=norm_comp_rewards, # Shaper works on normalized rewards
-            base_reward=base_reward # Shaper can optionally include the base_reward
-        )
-
-        # Store raw, normalized, and weighted rewards in info if desired
-        info["rllama_raw_rewards"] = raw_comp_rewards
-        info["rllama_normalized_rewards"] = norm_comp_rewards
-        info["rllama_weighted_rewards"] = self.shaper.get_last_weighted_rewards()
-        info["rllama_total_shaped_reward"] = shaped_reward
-        info["rllama_base_reward"] = base_reward
+        # Extract text information for reward calculation
+        prompt = info.get('prompt', '')
+        response = info.get('response', '')
         
-        self._last_obs = next_obs
-        self._last_action = action # Store current action as previous for next step
+        if prompt and response:
+            # Calculate RLlama reward
+            rllama_reward = self.composer.compose(prompt, response)
+            shaped_reward = self.shaper.shape([rllama_reward])[0]
+            
+            # Replace or augment original reward
+            reward = shaped_reward
+            
+            # Add RLlama info
+            info['rllama_reward'] = rllama_reward
+            info['shaped_reward'] = shaped_reward
+        
+        self.step_count += 1
+        return obs, reward, done, info
+    
+    def reset(self, **kwargs):
+        """Reset environment and RLlama components"""
+        obs = self.env.reset(**kwargs)
+        
+        # Reset step count for new episode
+        self.step_count = 0
+        
+        return obs
 
-        return next_obs, float(shaped_reward), terminated, truncated, info
-
-# Example Usage (conceptual):
-# from stable_baselines3 import PPO
-# from rllama.utils.config_loader import register_component # if needed
-# # from rllama.rewards.robotics_components import TargetReachedReward # etc.
-# # register_component("TargetReachedReward", TargetReachedReward)
-
-# env = gym.make("YourEnv-v0")
-# wrapped_env = SB3RllamaWrapper(env, "path/to/your/rllama_config.yaml")
-# model = PPO("MlpPolicy", wrapped_env, verbose=1)
-# model.learn(total_timesteps=10000)
+class RLlamaCallback(BaseCallback):
+    """
+    Callback for tracking RLlama metrics during SB3 training
+    """
+    
+    def __init__(self, verbose: int = 0):
+        super().__init__(verbose)
+        self.rllama_rewards = []
+        self.shaped_rewards = []
+    
+    def _on_step(self) -> bool:
+        """Called after each step"""
+        # Extract RLlama information from info
+        infos = self.locals.get('infos', [])
+        
+        for info in infos:
+            if 'rllama_reward' in info:
+                self.rllama_rewards.append(info['rllama_reward'])
+            if 'shaped_reward' in info:
+                self.shaped_rewards.append(info['shaped_reward'])
+        
+        return True
+    
+    def _on_training_end(self) -> None:
+        """Called at the end of training"""
+        if self.rllama_rewards:
+            mean_rllama = np.mean(self.rllama_rewards)
+            mean_shaped = np.mean(self.shaped_rewards)
+            
+            self.logger.record("rllama/mean_reward", mean_rllama)
+            self.logger.record("rllama/mean_shaped_reward", mean_shaped)

@@ -83,6 +83,70 @@ class RLlibRllamaEnv(gym.Env, TaskSettableEnv): # Inherit from gym.Env for base 
         if hasattr(self.env, "set_task"):
             self.env.set_task(task)
 
+from ray.rllib.env import BaseEnv
+from ray.rllib.policy import Policy
+from ray.rllib.evaluation import MultiAgentEpisode, RolloutWorker
+from ray.rllib.utils.typing import PolicyID
+import yaml
+
+class RLlamaRLlibCallback:
+    """
+    Ray RLlib callback for RLlama integration
+    """
+    
+    def __init__(self, config_path: str):
+        # Load RLlama configuration
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Initialize RLlama components
+        from ..core.composer import RewardComposer
+        from ..core.shaper import RewardShaper
+        
+        self.composer = RewardComposer(config.get('composer', {}))
+        self.shaper = RewardShaper(config.get('shaper', {}))
+        
+        # Track metrics
+        self.episode_rllama_rewards = []
+    
+    def on_episode_step(self,
+                       *,
+                       worker: RolloutWorker,
+                       base_env: BaseEnv,
+                       episode: MultiAgentEpisode,
+                       **kwargs) -> None:
+        """Called after each step in an episode"""
+        
+        # Get the latest step info
+        info = episode.last_info_for()
+        
+        if info and 'prompt' in info and 'response' in info:
+            # Calculate RLlama reward
+            rllama_reward = self.composer.compose(
+                info['prompt'], 
+                info['response']
+            )
+            
+            # Store in episode custom metrics
+            episode.custom_metrics['rllama_reward'] = rllama_reward
+            self.episode_rllama_rewards.append(rllama_reward)
+    
+    def on_episode_end(self,
+                      *,
+                      worker: RolloutWorker,
+                      base_env: BaseEnv,
+                      policies: Dict[PolicyID, Policy],
+                      episode: MultiAgentEpisode,
+                      **kwargs) -> None:
+        """Called at the end of each episode"""
+        
+        if self.episode_rllama_rewards:
+            mean_rllama_reward = sum(self.episode_rllama_rewards) / len(self.episode_rllama_rewards)
+            episode.custom_metrics['mean_rllama_reward'] = mean_rllama_reward
+            
+            # Reset for next episode
+            self.episode_rllama_rewards = []
+
 # Example RLlib Config (conceptual):
 # config = {
 #     "env": RLlibRllamaEnv,
