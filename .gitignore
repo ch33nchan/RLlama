@@ -37,4 +37,17 @@ Thumbs.db
 
 # Other
 .env
-*.logcd /Users/cheencheen/Desktop/git/rl/RLlama && rm -rf __pycache__ .pytest_cache build dist *.egg-info trl_rllama_finetuned_model && find . -name "*.pyc" -delete && find . -name "*.pyo" -delete && find . -name "*$py.class" -delete && find . -name ".DS_Store" -delete && find . -name "Thumbs.db" -delete && find . -name "*.log" -delete && rm -f rllama_training_analysis.json training_stats.json rllama_analysis.json && ls -lacd /Users/cheencheen/Desktop/git/rl/RLlama && rm -rf __pycache__ .pytest_cache build dist *.egg-info trl_rllama_finetuned_model && find . -name "*.pyc" -delete && find . -name "*.pyo" -delete && find . -name "*$py.class" -delete && find . -name ".DS_Store" -delete && find . -name "Thumbs.db" -delete && find . -name "*.log" -delete && rm -f rllama_training_analysis.json training_stats.json rllama_analysis.json && ls -lacd /Users/cheencheen/Desktop/git/rl/RLlama && rm -rf __pycache__ .pytest_cache build dist *.egg-info trl_rllama_finetuned_model && find . -name "*.pyc" -delete && find . -name "*.pyo" -delete && find . -name "*$py.class" -delete && find . -name ".DS_Store" -delete && find . -name "Thumbs.db" -delete && find . -name "*.log" -delete && rm -f rllama_training_analysis.json training_stats.json rllama_analysis.json && ls -la
+*.log
+
+# Generated files and models (NEW - prevents large files)
+trl_rllama_finetuned_model/
+*_analysis.json
+training_stats.json
+*.safetensors
+*.bin
+models/
+checkpoints/
+temp_config_trial_*.yaml
+
+# Dashboard cache
+.streamlit/
