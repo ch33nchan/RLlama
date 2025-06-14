@@ -1,50 +1,39 @@
-from typing import Dict, Any, Optional
+# rllama/rewards/base.py
 
-class BaseReward:
+from abc import ABC, abstractmethod
+from typing import Any, Dict
+
+class BaseReward(ABC):
     """
-    Base class for all reward components.
-    Each reward component must inherit from this class.
+    Abstract base class for all reward components.
+
+    Each component must implement the `calculate` method. The `__init__`
+    method can be overridden in subclasses to accept specific parameters
+    from the YAML configuration.
     """
-    def __init__(self, name: str, weight: float = 1.0):
-        """
-        Initializes the reward component.
 
-        Args:
-            name (str): The unique name of the reward component.
-                        This is typically the key used in configuration files.
-            weight (float): The weight assigned to this reward component,
-                            used by composers to scale its contribution.
+    def __init__(self, **kwargs):
         """
-        if not isinstance(name, str) or not name:
-            raise ValueError("Reward component name must be a non-empty string.")
-        if not isinstance(weight, (int, float)):
-            raise ValueError("Reward component weight must be a number.")
-            
-        self.name = name
-        self.weight = weight
-
-    def calculate(self, context: Dict[str, Any]) -> float:
-        """
-        Calculates the reward value based on the given context.
-        Subclasses MUST implement this method.
-
-        Args:
-            context (Dict[str, Any]): A dictionary containing all necessary
-                                      information to calculate the reward.
-        Returns:
-            float: The calculated reward value.
-        """
-        raise NotImplementedError(f"{self.__class__.__name__} must implement the 'calculate' method.")
-
-    def reset(self):
-        """
-        Resets any internal state of the reward component.
-        Optional: Subclasses can override this.
+        The constructor can accept any parameters defined under the `params`
+        key for this component in your YAML config. `kwargs` will be a
+        dictionary containing these parameters.
         """
         pass
 
-    def __str__(self) -> str:
-        return f"{self.__class__.__name__}(name='{self.name}', weight={self.weight})"
+    @abstractmethod
+    def calculate(self, context: Dict[str, Any]) -> float:
+        """
+        Calculates the reward for a given context.
 
-    def __repr__(self) -> str:
-        return self.__str__()
+        This method must be implemented by all subclasses.
+
+        Args:
+            context (Dict[str, Any]): A dictionary containing all necessary
+                                     information for the reward calculation,
+                                     e.g., {'prompt': str, 'response': str,
+                                     'info': dict}.
+
+        Returns:
+            float: The calculated reward value for this component.
+        """
+        pass
