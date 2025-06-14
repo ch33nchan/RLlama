@@ -1,36 +1,22 @@
-# Configuration for the Reward Shaping Framework
+# examples/reward_config.yaml
 
-# Optional: Global settings for RewardComposer
-composer_settings:
-  normalize: false # Set to true to enable running normalization
-  norm_window: 1000
-
-# Define which reward components to use and their parameters
-# Used by the registry to instantiate components
+# This block defines which reward components to load and their specific parameters.
 reward_components:
-  goal: # Name used in registry
-    class: frozen_lake_goal # Specific class name (if not in registry) or registered name
-    params: {} # No params for this one
-  hole:
-    class: frozen_lake_hole
-    params: {}
-  step:
-    class: step_penalty # Use registered name
+  - name: LengthReward
     params:
-      penalty: -0.01 # Parameter for StepPenaltyReward.__init__
+      # We want to encourage responses around 50 characters.
+      target_length: 50
+      strength: 0.0005
 
-# Define shaping configurations (weights, decay) for RewardShaper
-# Keys here MUST match the 'name' property of the instantiated reward components
-reward_shaping:
-  frozen_lake_goal: # Must match FrozenLakeGoalReward().name
-    initial_weight: 1.0
-    decay_schedule: 'none' # Weight stays constant
-  frozen_lake_hole: # Must match FrozenLakeHolePenalty().name
-    initial_weight: 1.0
-    decay_schedule: 'none'
-  step_penalty: # Must match StepPenaltyReward().name
-    initial_weight: 1.0
-    # Example with decay:
-    # decay_schedule: 'linear'
-    # decay_steps: 5000
-    # min_weight: 0.0
+  - name: HuggingFaceSentimentReward
+    params:
+      # Use a standard pre-trained sentiment model.
+      model_path: "distilbert-base-uncased-finetuned-sst-2-english"
+
+# This block defines how to combine the raw values from the components above.
+# The weights determine the influence of each component on the final reward.
+shaping_config:
+  LengthReward:
+    weight: 0.2
+  HuggingFaceSentimentReward:
+    weight: 0.8
