@@ -1,0 +1,129 @@
+# Enhanced RLlama Configuration for Advanced TRL Training
+
+composer:
+  components:
+    # Core language quality components
+    - type: "CoherenceReward"
+      weight: 1.2
+      params:
+        min_sentences: 2
+        transition_bonus: 0.3
+        coherence_threshold: 0.7
+      schedule:
+        type: "linear_decay"
+        decay_steps: 50
+        final_weight: 0.8
+    
+    - type: "HelpfulnessReward"
+      weight: 1.0
+      params:
+        overlap_weight: 0.8
+        question_bonus: 0.4
+        context_weight: 0.6
+    
+    - type: "DiversityReward"
+      weight: 0.8
+      params:
+        vocab_diversity_weight: 0.7
+        ngram_diversity_weight: 0.3
+      schedule:
+        type: "exponential_decay"
+        decay_rate: 0.95
+        min_weight: 0.2
+    
+    # Content quality components
+    - type: "ConcisenessReward"
+      weight: 0.6
+      params:
+        optimal_min: 5
+        optimal_max: 30
+        penalty_factor: 0.1
+    
+    - type: "ReadabilityReward"
+      weight: 0.5
+      params:
+        optimal_sentence_length: 15
+        complexity_penalty: 0.2
+    
+    # Safety and correctness
+    - type: "ToxicityReward"
+      weight: 2.0  # High weight for safety
+      params:
+        toxicity_threshold: 0.1
+        severe_penalty: -2.0
+    
+    - type: "FactualityReward"
+      weight: 0.8
+      params:
+        factual_indicators_bonus: 0.3
+        uncertainty_penalty: 0.1
+    
+    # Style and engagement
+    - type: "SentimentReward"
+      weight: 0.4
+      params:
+        target_sentiment: "positive"
+        neutrality_bonus: 0.1
+    
+    # Exploration bonuses
+    - type: "EntropyBonus"
+      weight: 0.6
+      schedule:
+        type: "linear_decay"
+        decay_steps: 30
+        final_weight: 0.1
+    
+    # Quality penalties
+    - type: "RepetitionPenalty"
+      weight: 0.8
+      params:
+        ngram_size: 3
+        penalty_weight: 0.5
+        repetition_threshold: 0.3
+
+# Reward shaping configuration
+shaper:
+  normalization_method: "standard"  # standard, minmax, robust, none
+  clipping:
+    enabled: true
+    min_value: -3.0
+    max_value: 3.0
+  
+  smoothing:
+    enabled: true
+    window_size: 5
+    method: "exponential"  # moving_average, exponential
+  
+  adaptive_scaling:
+    enabled: true
+    target_mean: 0.0
+    target_std: 1.0
+    adaptation_rate: 0.1
+
+# Training configuration
+training:
+  # Component weight learning
+  adaptive_weights:
+    enabled: false  # Disable for this example
+    learning_rate: 0.01
+    momentum: 0.9
+  
+  # Early stopping
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_improvement: 0.01
+  
+  # Logging and monitoring
+  logging:
+    log_level: "INFO"
+    log_components: true
+    log_frequency: 1
+    export_frequency: 5
+
+# Analysis configuration
+analysis:
+  component_analysis: true
+  trend_analysis: true
+  correlation_analysis: true
+  export_plots: true

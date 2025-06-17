@@ -1,93 +1,65 @@
-import gym
-import numpy as np
-from typing import Dict, Any, Optional, List
-from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.callbacks import BaseCallback
-import yaml
+# rllama/integration/sb3_wrapper.py
 
-from ..core.composer import RewardComposer
-from ..core.shaper import RewardShaper
+import gymnasium as gym
+from typing import Any, SupportsFloat
 
-class RLlamaRewardWrapper(gym.Wrapper):
+from rllama.engine import RewardEngine
+
+class SB3RllamaRewardWrapper(gym.Wrapper):
     """
-    Stable Baselines3 wrapper for RLlama reward processing
+    A Gymnasium wrapper to integrate the RLlama RewardEngine with Stable Baselines 3.
+
+    This wrapper intercepts the reward from the base environment at each step,
+    computes a supplemental reward using the RLlama engine, and adds it to
+    the original reward.
     """
-    
-    def __init__(self, env: gym.Env, config_path: str):
+    def __init__(self, env: gym.Env, rllama_config_path: str):
+        """
+        Initializes the wrapper.
+
+        Args:
+            env (gym.Env): The Gymnasium environment to wrap.
+            rllama_config_path (str): The file path to the RLlama YAML config.
+        """
         super().__init__(env)
-        
-        # Load RLlama configuration
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-        
-        # Initialize RLlama components
-        self.composer = RewardComposer(config.get('composer', {}))
-        self.shaper = RewardShaper(config.get('shaper', {}))
-        
-        # Track statistics
-        self.episode_rewards = []
-        self.step_count = 0
-    
-    def step(self, action):
-        """Step function with RLlama reward processing"""
-        obs, reward, done, info = self.env.step(action)
-        
-        # Extract text information for reward calculation
-        prompt = info.get('prompt', '')
-        response = info.get('response', '')
-        
-        if prompt and response:
-            # Calculate RLlama reward
-            rllama_reward = self.composer.compose(prompt, response)
-            shaped_reward = self.shaper.shape([rllama_reward])[0]
-            
-            # Replace or augment original reward
-            reward = shaped_reward
-            
-            # Add RLlama info
-            info['rllama_reward'] = rllama_reward
-            info['shaped_reward'] = shaped_reward
-        
-        self.step_count += 1
-        return obs, reward, done, info
-    
-    def reset(self, **kwargs):
-        """Reset environment and RLlama components"""
-        obs = self.env.reset(**kwargs)
-        
-        # Reset step count for new episode
-        self.step_count = 0
-        
-        return obs
+        print("Initializing RLlama for Stable Baselines 3...")
+        # This uses the RewardEngine we defined previously
+        self.reward_engine = RewardEngine(config_path=rllama_config_path)
 
-class RLlamaCallback(BaseCallback):
-    """
-    Callback for tracking RLlama metrics during SB3 training
-    """
-    
-    def __init__(self, verbose: int = 0):
-        super().__init__(verbose)
-        self.rllama_rewards = []
-        self.shaped_rewards = []
-    
-    def _on_step(self) -> bool:
-        """Called after each step"""
-        # Extract RLlama information from info
-        infos = self.locals.get('infos', [])
+    def step(self, action: Any) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
+        """
+        Overrides the environment's step method to inject the RLlama reward.
+        """
+        # 1. Get the original transition from the base environment
+        observation, reward, terminated, truncated, info = self.env.step(action)
+
+        # 2. Construct the context for RLlama
+        # The 'info' dictionary from the environment is a great place to put
+        # any information that reward components might need.
+        context = {
+            "action": action,
+            "observation": observation,
+            "reward": reward,
+            "terminated": terminated,
+            "truncated": truncated,
+            "info": info,
+        }
+
+        # 3. Compute the supplemental reward from RLlama and log the trace
+        rllama_reward = self.reward_engine.compute_and_log(context)
+
+        # 4. Combine the rewards
+        # We add the RLlama reward to the environment's base reward.
+        # This allows RLlama to act as a "bonus" or shaping signal.
+        combined_reward = reward + rllama_reward
         
-        for info in infos:
-            if 'rllama_reward' in info:
-                self.rllama_rewards.append(info['rllama_reward'])
-            if 'shaped_reward' in info:
-                self.shaped_rewards.append(info['shaped_reward'])
-        
-        return True
-    
-    def _on_training_end(self) -> None:
-        """Called at the end of training"""
-        if self.rllama_rewards:
-            mean_rllama = np.mean(self.rllama_rewards)
-            mean_shaped = np.mean(self.shaped_rewards)
-            
-            self.logger.record("rllama/mean_reward", mean_rllama)
-            self.logger.record("rllama/mean_shaped_reward", mean_shaped)
+        # Add rllama-specific info for debugging or analysis
+        info['rllama_reward'] = rllama_reward
+        info['original_reward'] = reward
+
+        return observation, combined_reward, terminated, truncated, info
+
+    def reset(self, **kwargs) -> tuple[Any, dict[str, Any]]:
+        """Resets the environment and the RLlama engine's step counter."""
+        self.reward_engine.current_step = 0
+        return self.env.reset(**kwargs)

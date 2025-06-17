@@ -51,3 +51,42 @@ temp_config_trial_*.yaml
 
 # Dashboard cache
 .streamlit/
+.db
+# Virtual Environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Test and tool cache
+.pytest_cache/
+.mypy_cache/
+*.db
+
+# Caches and Logs
+__pycache__/
+.pytest_cache/
+logs/
+*.db
+optuna_results/
+# IDE and Cache Folders
+.idea/
+.vscode/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+
+# Generated Artifacts
+logs/
+*.db
+optuna_results/
+sb3_blackjack_logs/
+
+# Environment
+venv/

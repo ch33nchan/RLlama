@@ -37,4 +37,4 @@ class RewardShaper:
             weight = self.config.get(name, {}).get('weight', 1.0)
             final_reward += weight * reward_val
 
-        return final_reward
+        return final_rewardw

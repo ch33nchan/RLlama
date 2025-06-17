@@ -1,27 +1,80 @@
 [tool.poetry]
 name = "rllama"
-version = "0.1.4"
-description = "A reinforcement learning framework for training LLMs featuring memory-augmented learning and multi-modal capabilities (coming soon)"
-authors = ["ch33nchan <ch33nchan@gmail.com>"]
+version = "0.2.0" # Bumped version to reflect refactoring
+description = "A composable reward engineering framework for Reinforcement Learning, enabling rapid experimentation and optimization of reward signals."
+authors = ["srini <geohotzdata@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/ch33nchan/RLlama"
+homepage = "https://github.com/ch33nchan/rllama"
+repository = "https://github.com/ch33nchan/rllama"
+keywords = ["reinforcement-learning", "reward-engineering", "llm", "rlhf", "machine-learning", "ai", "deep-learning"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
+pyyaml = "^6.0.1"
+numpy = "^1.26.4"
 torch = ">=2.0.0"
-transformers = ">=4.28.1"
-trl = ">=0.4.1"
-peft = ">=0.3.0"
-gymnasium = "*"
-accelerate = ">=0.19.0"
-bitsandbytes = ">=0.37.2"
-tqdm = "*"
-numpy = "*"
-# Removed the [tool.poetry.scripts] section
-pyyaml = "^6.0.2"
-optuna = "^4.3.0"
+
+# Optional dependencies, grouped into extras below
+transformers = { version = "^4.38.2", optional = true }
+trl = { version = "^0.7.11", optional = true }
+accelerate = { version = "^0.27.2", optional = true }
+datasets = { version = "^2.18.0", optional = true }
+stable-baselines3 = { version = "^2.2.0", optional = true, extras = ["extra"] }
+ray = { version = "^2.9.3", extras = ["rllib"], optional = true }
+optuna = { version = "^3.6.0", optional = true }
+scipy = { version = "^1.13.0", optional = true }
+streamlit = { version = "^1.32.2", optional = true }
+plotly = { version = "^5.19.0", optional = true }
+pandas = { version = "^2.2.1", optional = true }
+gymnasium = {version = "^0.29.1", optional=true}
+
+
+[tool.poetry.extras]
+# To install: pip install rllama[trl]
+trl = ["transformers", "trl", "accelerate", "datasets"]
+
+# To install: pip install rllama[sb3]
+sb3 = ["stable-baselines3", "gymnasium"]
+
+# To install: pip install rllama[rllib]
+rllib = ["ray"]
+
+# To install: pip install rllama[optimization]
+optimization = ["optuna", "scipy"]
+
+# To install: pip install rllama[dashboard]
+dashboard = ["streamlit", "plotly", "pandas"]
+
+# To install everything: pip install rllama[all]
+all = [
+    "transformers",
+    "trl",
+    "accelerate",
+    "datasets",
+    "stable-baselines3",
+    "gymnasium",
+    "ray",
+    "optuna",
+    "scipy",
+    "streamlit",
+    "plotly",
+    "pandas",
+]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
+black = "^24.3.0"
+isort = "^5.13.2"
+
+[tool.poetry.scripts]
+# This allows running 'rllama-dashboard' from the command line after installation
+rllama-dashboard = "rllama.run_dashboard:main"
+
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"
