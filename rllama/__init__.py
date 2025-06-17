@@ -1,24 +1,19 @@
+# rllama/__init__.py
 """
-RLlama: Composable Reward Engineering Framework for Reinforcement Learning
+RLlama: A Composable Reward Engineering Framework for Reinforcement Learning.
 """
 
-__version__ = "0.1.1"
-__author__ = "RLlama Team"
+# Expose the main, user-facing classes for easy import
+from .engine import RewardEngine
+from .integration.trl_wrapper import TRLRlamaRewardProcessor
+from .integration.sb3_wrapper import SB3RllamaRewardWrapper
+from .rewards.base import BaseReward
 
-# Core imports
-from .core.composer import RewardComposer
-from .core.shaper import RewardShaper
-
-# Integration imports
-try:
-    from .integration.trl_wrapper import TRLRllamaRewardProcessor, TRLRllamaCallback
-except ImportError:
-    # TRL not installed
-    pass
+__version__ = "0.2.1"  # Let's version this fix
 
 __all__ = [
-    "RewardComposer",
-    "RewardShaper",
-    "TRLRllamaRewardProcessor", 
-    "TRLRllamaCallback"
+    "RewardEngine",
+    "TRLRlamaRewardProcessor",
+    "SB3RllamaRewardWrapper",
+    "BaseReward",
 ]
