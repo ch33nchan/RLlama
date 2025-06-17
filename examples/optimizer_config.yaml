@@ -1,0 +1,20 @@
+# examples/optimizer_config.yaml
+
+reward_components:
+  - name: LengthReward
+    params:
+      target_length: 50
+  - name: ConstantReward
+    params:
+      value: 0.01
+
+shaping_config:
+  # This component's weight will be optimized
+  LengthReward:
+    tune: true
+    tune_min: 0.0
+    tune_max: 2.0
+  
+  # This component's weight is fixed
+  ConstantReward:
+    weight: 0.1
