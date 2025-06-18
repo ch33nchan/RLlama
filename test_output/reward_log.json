@@ -1,0 +1,1 @@
+{"total_rewards": [-2.7125, -1.7605, -24.099999999999998], "component_rewards": [{"LengthReward": -5.625, "ConstantReward": 0.1}, {"LengthReward": -3.721, "ConstantReward": 0.1}, {"LengthReward": -48.4, "ConstantReward": 0.1}], "timestamps": ["2025-06-18T22:42:37.133252", "2025-06-18T22:42:37.133409", "2025-06-18T22:42:37.133503"], "steps": [0, 1, 2]}

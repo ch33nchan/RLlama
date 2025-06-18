@@ -1,3 +1,5 @@
+# Ensure common.py exists with necessary components
+cat > rllama/rewards/components/common.py << 'EOF'
 
 
 from typing import Dict, Any
@@ -41,3 +43,4 @@ class ConstantReward(BaseReward):
         
     def calculate(self, context: Dict[str, Any]) -> float:
         return self.value
+EOF

@@ -1,0 +1,94 @@
+# Example configuration for LLM reward optimization
+
+# Reward components to use
+reward_components:
+  - name: "LengthReward"
+    params:
+      target_length: 200
+      strength: 0.0005
+      
+  - name: "FactualityReward"
+    params:
+      weight: 2.0
+      threshold: 0.7
+      hallucination_penalty: 3.0
+      
+  - name: "CoherenceReward"
+    params:
+      weight: 1.5
+      min_score: 0.0
+      max_score: 1.0
+      
+  - name: "RelevanceReward"
+    params:
+      weight: 1.8
+      query_importance: 0.7
+      
+  - name: "HelpfulnessReward"
+    params:
+      weight: 1.5
+      min_value: -0.5
+      max_value: 1.5
+      
+  - name: "ToxicityPenalty"
+    params:
+      penalty_value: -5.0
+      threshold: 0.7
+      
+  - name: "DiversityReward"
+    params:
+      weight: 0.7
+      min_score: 0.2
+
+# Shaping configuration with weights and schedules
+shaping_config:
+  LengthReward:
+    weight: 0.3
+    schedule: constant
+    
+  FactualityReward:
+    weight: 3.0
+    schedule: linear
+    schedule_params:
+      start_step: 0
+      end_step: 5000
+      start_value: 1.0
+      end_value: 3.0
+    min_weight: 1.0
+    max_weight: 3.0
+    
+  CoherenceReward:
+    weight: 1.0
+    
+  RelevanceReward:
+    weight: 2.0
+    schedule: cosine
+    schedule_params:
+      start_step: 0
+      end_step: 10000
+      start_value: 2.0
+      end_value: 1.5
+      
+  HelpfulnessReward:
+    weight: 1.5
+    
+  ToxicityPenalty:
+    weight: 2.0
+    schedule: step
+    schedule_params:
+      boundaries: [1000, 3000, 7000]
+      values: [1.0, 2.0, 4.0, 5.0]
+      
+  DiversityReward:
+    weight: 0.5
+    schedule: exponential
+    schedule_params:
+      decay_rate: 0.9999
+      start_step: 1000
+
+# Logging configuration
+logging:
+  log_dir: "./rllama_logs"
+  log_frequency: 100
+  visualize: true
+  save_traces: true
