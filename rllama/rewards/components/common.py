@@ -1,8 +1,11 @@
-
+# rllama/rewards/components/common.py
 
 from typing import Dict, Any
-from rllama.rewards.base import BaseReward
+import logging
+from ..base import BaseReward
+from ..registry import register_reward_component
 
+@register_reward_component
 class LengthReward(BaseReward):
     """
     Calculates a reward based on the length of the response.
@@ -17,6 +20,7 @@ class LengthReward(BaseReward):
         super().__init__()
         self.target_length = target_length
         self.strength = strength
+        logging.info(f"Initialized LengthReward with target={target_length}, strength={strength}")
 
     def calculate(self, context: Dict[str, Any]) -> float:
         response = context.get("response", "")
@@ -26,6 +30,7 @@ class LengthReward(BaseReward):
         # Quadratic penalty for deviation from target length
         return -self.strength * ((len(response) - self.target_length) ** 2)
 
+@register_reward_component
 class ConstantReward(BaseReward):
     """
     Provides a constant reward value at each step.
@@ -38,6 +43,7 @@ class ConstantReward(BaseReward):
         """
         super().__init__()
         self.value = value
+        logging.info(f"Initialized ConstantReward with value={value}")
         
     def calculate(self, context: Dict[str, Any]) -> float:
         return self.value

@@ -1,37 +1,51 @@
 # rllama/rewards/composer.py
 
-from typing import List, Dict, Any
-from rllama.rewards.base import BaseReward
+from typing import Dict, Any, List
+import logging
+
+from .base import BaseReward
 
 class RewardComposer:
     """
-    Manages a list of reward components and calculates their raw,
-    unweighted reward values for a given context.
+    Composes multiple reward components into a single reward calculation.
+    This class handles the execution of multiple reward components and collects
+    their individual reward signals.
     """
-    def __init__(self, reward_components: List[BaseReward]):
+    
+    def __init__(self, components: List[BaseReward]):
         """
         Args:
-            reward_components (List[BaseReward]): A list of instantiated
-                                                  reward component objects.
+            components: List of reward components to compose
         """
-        self.reward_components = reward_components
-
+        self.components = components
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
     def calculate(self, context: Dict[str, Any]) -> Dict[str, float]:
         """
-        Calculates the raw reward for each component.
-
+        Calculate rewards from all components.
+        
         Args:
-            context (Dict[str, Any]): The context dictionary to pass to each
-                                     reward component's calculate() method.
-
+            context: Dictionary containing all needed context for reward calculation
+                     (e.g., response, query, metadata)
+                     
         Returns:
-            A dictionary mapping each component's class name to its
-            calculated raw reward value.
-            e.g., {'LengthReward': -0.5, 'ConstantReward': 0.01}
+            Dictionary mapping component names to their reward values
         """
-        component_rewards = {}
-        for component in self.reward_components:
-            component_name = component.__class__.__name__
-            component_rewards[component_name] = component.calculate(context)
-
-        return component_rewards
+        rewards = {}
+        
+        for component in self.components:
+            try:
+                # Extract component name from class name
+                component_name = component.__class__.__name__
+                
+                # Calculate the reward for this component
+                reward = component.calculate(context)
+                rewards[component_name] = reward
+                
+            except Exception as e:
+                self.logger.error(f"Error calculating reward in {component.__class__.__name__}: {e}")
+                # Add 0 reward for this component to avoid missing keys
+                component_name = getattr(component, "__class__", type(component)).__name__
+                rewards[component_name] = 0.0
+                
+        return rewards

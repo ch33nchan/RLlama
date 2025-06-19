@@ -1,8 +1,9 @@
-
+# Import reward components
 from .base import BaseReward
 from .composer import RewardComposer
 from .shaper import RewardShaper
-from .registry import REWARD_REGISTRY, register_reward_component, get_reward_component
+from .registry import REWARD_REGISTRY, register_reward_component
+from .components import LengthReward, ConstantReward
 
 __all__ = [
     "BaseReward",
@@ -10,5 +11,6 @@ __all__ = [
     "RewardShaper",
     "REWARD_REGISTRY",
     "register_reward_component",
-    "get_reward_component",
+    "LengthReward",
+    "ConstantReward",
 ]

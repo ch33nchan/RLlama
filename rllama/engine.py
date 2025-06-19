@@ -2,7 +2,7 @@
 
 import os
 import yaml
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any
 import logging
 from datetime import datetime
 
@@ -32,6 +32,7 @@ class RewardEngine:
         """
         self.config_path = config_path
         self.verbose = verbose
+        self.current_step = 0
         
         # Load configuration
         self.config = self._load_config(config_path)
@@ -127,6 +128,11 @@ class RewardEngine:
         Returns:
             The computed reward value
         """
+        # Set current step
+        if "step" not in context:
+            context["step"] = self.current_step
+            self.current_step += 1
+        
         # Compute component rewards
         component_rewards = self.composer.calculate(context)
         
@@ -148,16 +154,21 @@ class RewardEngine:
         Returns:
             The computed reward value
         """
+        # Set current step if not provided
+        if "step" not in context:
+            context["step"] = self.current_step
+            self.current_step += 1
+            
         # Compute component rewards
         component_rewards = self.composer.calculate(context)
         
-        # Get step from context if available
-        step = context.get("step", 0)
+        # Get step from context
+        step = context.get("step", self.current_step)
         
         # Apply shaping to get final reward
         reward = self.shaper.shape(component_rewards, step)
         
-        # Log the reward - FIXED: Changed from log() to log_reward()
+        # Log the reward
         self.reward_logger.log_reward(
             total_reward=reward,
             component_rewards=component_rewards,
