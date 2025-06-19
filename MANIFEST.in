@@ -1,0 +1,8 @@
+include LICENSE
+include README.md
+include pyproject.toml
+recursive-include tests *
+recursive-include docs *.md *.rst *.txt *.png *.jpg *.jpeg *.gif
+recursive-include examples *.py *.yaml *.md
+prune */__pycache__
+global-exclude *.py[cod] __pycache__ *.so *.dylib .DS_Store
