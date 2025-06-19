@@ -1,0 +1,11 @@
+metadata:
+  optimization:
+    direction: maximize
+    n_trials: 10
+    optimized: true
+    timestamp: '2025-06-19T00:36:46.529829'
+shaping_config:
+  ConstantReward:
+    weight: 1.5892910772783262
+  LengthReward:
+    weight: 0.10755363979017976

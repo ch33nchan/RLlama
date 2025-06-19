@@ -1,0 +1,16 @@
+logging:
+  log_dir: ./output
+  log_frequency: 1
+reward_components:
+- name: LengthReward
+  params:
+    strength: 0.001
+    target_length: 150
+- name: ConstantReward
+  params:
+    value: 0.1
+shaping_config:
+  ConstantReward:
+    weight: 1.0
+  LengthReward:
+    weight: 0.5
