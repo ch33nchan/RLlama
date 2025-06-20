@@ -11,15 +11,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs==1.5.3 
-          pip install mkdocs-material==9.4.6
-          pip install "mkdocstrings[python]==0.22.0"
+          pip install mkdocs==1.4.2 mkdocs-material==9.1.8
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+      
       - name: Deploy docs
         run: mkdocs gh-deploy --force

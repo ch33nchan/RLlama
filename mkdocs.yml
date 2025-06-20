@@ -35,12 +35,8 @@ nav:
     - Optimization Guide: optimization_guide.md
     - Reward Cookbook: reward_cookbook.md
     - Integration with RL Frameworks: integration.md
-    - RLHF Integration: rlhf-integration.md
   - API Reference:
-    - RewardEngine: api/engine.md
-    - Reward Components: api/components.md
-    - Memory: api/memory.md
-    - Visualization: api/visualization.md
+    - Overview: api/overview.md
   - Examples:
     - Basic Examples: examples/basic.md
     - Advanced Examples: examples/advanced.md
@@ -59,4 +55,3 @@ markdown_extensions:
 
 plugins:
   - search
-  - mkdocstrings
