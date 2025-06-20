@@ -1,4 +1,4 @@
-# Python
+# Python build artifacts
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,73 +20,59 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
-venv/
+# Distribution / packaging
+.Python
 env/
-ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# IDE
-.vscode/
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE specific files
 .idea/
+.vscode/
 *.swp
 *.swo
 
-# OS
+# OS specific
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-
-# Other
-.env
-*.log
-
-# Generated files and models (NEW - prevents large files)
-trl_rllama_finetuned_model/
-*_analysis.json
-training_stats.json
-*.safetensors
-*.bin
-models/
-checkpoints/
-temp_config_trial_*.yaml
-
-# Dashboard cache
-.streamlit/
-.db
-# Virtual Environment
-venv/
-
-# Python cache
-__pycache__/
-*.pyc
-
-# Build artifacts
-build/
-dist/
-*.egg-info/
-
-# Test and tool cache
-.pytest_cache/
-.mypy_cache/
-*.db
-
-# Caches and Logs
-__pycache__/
-.pytest_cache/
-logs/
-*.db
-optuna_results/
-# IDE and Cache Folders
-.idea/
-.vscode/
-__pycache__/
-.pytest_cache/
-.mypy_cache/
-
-# Generated Artifacts
-logs/
-*.db
-optuna_results/
-sb3_blackjack_logs/
-
-# Environment
-venv/
+.sh 
+.txt
+s

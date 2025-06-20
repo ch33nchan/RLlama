@@ -1,0 +1,59 @@
+site_name: RLlama
+site_description: A composable reward engineering framework for reinforcement learning
+site_url: https://ch33nchanyes.github.io/rllama/
+repo_url: https://github.com/ch33nchanyes/rllama
+repo_name: ch33nchanyes/rllama
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: deep orange
+  logo: docs/images/llamagym.jpg
+  favicon: docs/images/llamagym.jpg
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation.md
+    - Quick Start: quickstart.md
+  - Core Concepts:
+    - Overview: concepts.md
+    - Rewards: rewards.md
+    - Memory Systems: memory.md
+    - Visualization: visualization.md
+  - Advanced Usage:
+    - Reward Optimization: optimization_guide.md
+    - RLHF: rlhf.md
+    - Integration: integration.md
+  - Reference:
+    - API Reference: api.md
+    - Reward Components: components.md
+  - Examples:
+    - Basic Examples: examples/basic.md
+    - Advanced Examples: examples/advanced.md
+  - Contributing: contributing.md
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed
+  - admonition
+  - footnotes
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          rendering:
+            show_source: true
