@@ -1,8 +1,8 @@
 site_name: RLlama Documentation
 site_description: A composable reward engineering framework for reinforcement learning
-site_url: https://ch33nchanyes.github.io/rllama/
-repo_url: https://github.com/ch33nchanyes/rllama
-repo_name: ch33nchanyes/rllama
+site_url: https://ch33nchan.github.io/rllama/
+repo_url: https://github.com/ch33nchan/rllama
+repo_name: ch33nchan/rllama
 
 theme:
   name: material
@@ -33,14 +33,13 @@ nav:
   - Guides:
     - Reward Component Design: component-design.md
     - Optimization Guide: optimization_guide.md
-    - Reward Cookbook: reward_cookbook.md
+    - Reward Cookbook: cookbook.md
     - Integration with RL Frameworks: integration.md
   - API Reference:
     - Overview: api/overview.md
   - Examples:
     - Basic Examples: examples/basic.md
     - Advanced Examples: examples/advanced.md
-  - Contributing: contributing.md
 
 markdown_extensions:
   - pymdownx.highlight:
