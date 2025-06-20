@@ -1,4 +1,4 @@
-site_name: RLlama
+site_name: RLlama Documentation
 site_description: A composable reward engineering framework for reinforcement learning
 site_url: https://ch33nchanyes.github.io/rllama/
 repo_url: https://github.com/ch33nchanyes/rllama
@@ -17,43 +17,46 @@ theme:
     - navigation.expand
     - search.suggest
     - search.highlight
+    - content.code.copy
 
 nav:
   - Home: index.md
+  - Understanding RLlama:
+    - Why RLlama?: why-rllama.md
+    - Without RLlama: without-rllama.md
+    - With RLlama: with-rllama.md
+    - Core Concepts: concepts.md
   - Getting Started:
     - Installation: installation.md
-    - Quick Start: quickstart.md
-  - Core Concepts:
-    - Overview: concepts.md
-    - Rewards: rewards.md
-    - Memory Systems: memory.md
-    - Visualization: visualization.md
-  - Advanced Usage:
-    - Reward Optimization: optimization_guide.md
-    - RLHF: rlhf.md
-    - Integration: integration.md
-  - Reference:
-    - API Reference: api.md
-    - Reward Components: components.md
+    - Quickstart: quickstart.md
+    - Basic Usage: usage.md
+  - Guides:
+    - Reward Component Design: component-design.md
+    - Optimization Guide: optimization_guide.md
+    - Reward Cookbook: reward_cookbook.md
+    - Integration with RL Frameworks: integration.md
+    - RLHF Integration: rlhf-integration.md
+  - API Reference:
+    - RewardEngine: api/engine.md
+    - Reward Components: api/components.md
+    - Memory: api/memory.md
+    - Visualization: api/visualization.md
   - Examples:
     - Basic Examples: examples/basic.md
     - Advanced Examples: examples/advanced.md
   - Contributing: contributing.md
 
 markdown_extensions:
-  - pymdownx.highlight
+  - pymdownx.highlight:
+      anchor_linenums: true
   - pymdownx.superfences
   - pymdownx.inlinehilite
-  - pymdownx.tabbed
   - admonition
   - footnotes
+  - tables
   - toc:
       permalink: true
 
 plugins:
   - search
-  - mkdocstrings:
-      handlers:
-        python:
-          rendering:
-            show_source: true
+  - mkdocstrings
