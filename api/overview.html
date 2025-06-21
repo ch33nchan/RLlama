@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>API Reference Overview – RLlama</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; line-height: 1.6; padding: 2rem; max-width: 800px; margin: auto; }
+    h1, h2 { margin-top: 1.5rem; }
+    pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; }
+    code { font-family: monospace; }
+  </style>
+</head>
+<body>
+
+  <h1>API Reference Overview</h1>
+  <p>This module currently exposes the core classes you need to integrate RLlama:</p>
+
+  <h2>RewardEngine</h2>
+  <p>The central component that manages all reward components. It lets you add components, compute the aggregated reward, and inspect individual contributions.</p>
+  <pre><code class="language-python">from rllama import RewardEngine
+
+# Create an engine
+engine = RewardEngine()
+
+# Register a component (any subclass of BaseReward)
+engine.add_component(component)
+
+# Compute the total reward for a given context
+reward = engine.compute(context)</code></pre>
+
+  <h2>BaseReward</h2>
+  <p>The base class for all reward components. To create your own, inherit from <code>BaseReward</code> and implement <code>compute()</code>.</p>
+  <pre><code class="language-python">from rllama.rewards.base import BaseReward
+
+class MyReward(BaseReward):
+    """
+    A custom reward component must implement compute().
+    """
+    def compute(self, context):
+        # Inspect the context dict (state, action, info, etc.)
+        # Return a numeric reward value.
+        return reward_value</code></pre>
+
+  <h2>Module Status</h2>
+  <p>At present, the API module provides these foundational classes. Other parts of RLlama—such as <code>RewardComposer</code>, <code>RewardShaper</code>, and the various built-in reward components—are defined in their respective submodules under <code>rllama.rewards</code>. Together, they form a complete reward-engineering toolkit.</p>
+
+</body>
+</html>

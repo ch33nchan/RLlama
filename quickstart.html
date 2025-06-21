@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Quickstart Guide – RLlama</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; line-height: 1.6; padding: 2rem; max-width: 800px; margin: auto; }
+    pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; }
+    code { font-family: monospace; }
+    h1, h2 { margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Quickstart Guide</h1>
+  <p>This guide will get you up and running with RLlama in minutes.</p>
+
+  <h2>Basic Setup</h2>
+  <pre><code class="language-python">from rllama import RewardEngine
+from rllama.rewards.components import LengthReward, DiversityReward
+
+# Create a new reward engine
+engine = RewardEngine()
+
+# Add reward components
+engine.add_component(LengthReward(target_length=100))
+engine.add_component(DiversityReward(history_size=5))
+
+# Compute rewards
+context = {
+    "response": "This is a sample response",
+    "history": ["Previous response 1", "Previous response 2"]
+}
+reward = engine.compute(context)
+print(f"Total reward: {reward}")</code></pre>
+
+  <h2>Using Weights</h2>
+  <pre><code class="language-python"># Set custom weights
+engine.set_weights({
+    "LengthReward": 0.5,
+    "DiversityReward": 2.0
+})
+
+# Compute reward with new weights
+reward = engine.compute(context)</code></pre>
+
+</body>
+</html>

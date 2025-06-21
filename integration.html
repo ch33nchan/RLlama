@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Integration with RL Frameworks – RLlama</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; line-height: 1.6; padding: 2rem; max-width: 800px; margin: auto; }
+    pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; }
+    code { font-family: monospace; }
+    h1, h2 { margin-top: 1.5rem; }
+    ul { margin-left: 1.5rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Integration with RL Frameworks</h1>
+  <p>RLlama is designed to integrate seamlessly with popular reinforcement learning frameworks. This guide covers:</p>
+  <ul>
+    <li>OpenAI Gym environments</li>
+    <li>Stable Baselines3</li>
+    <li>Custom RL environments</li>
+  </ul>
+
+  <h2>OpenAI Gym Integration</h2>
+  <pre><code class="language-python">from rllama import RewardEngine
+from rllama.integration import GymWrapper
+import gym
+
+# Create a standard Gym environment
+env = gym.make('CartPole-v1')
+
+# Create and configure a reward engine
+engine = RewardEngine()
+engine.add_component(ProgressReward(goal_pos=0.0))
+
+# Create the wrapped environment
+wrapped_env = GymWrapper(engine).wrap(env)
+
+# Now use the wrapped environment with any RL algorithm
+observation = wrapped_env.reset()
+</code></pre>
+
+  <h2>Stable Baselines3 Integration</h2>
+  <pre><code class="language-python">from rllama.integration import StableBaselinesWrapper
+from stable_baselines3 import PPO
+
+# Create a wrapped environment
+wrapped_env = GymWrapper(engine).wrap(env)
+
+# Initialize a Stable Baselines model
+model = PPO("MlpPolicy", wrapped_env, verbose=1)
+model.learn(total_timesteps=50000)
+</code></pre>
+
+</body>
+</html>

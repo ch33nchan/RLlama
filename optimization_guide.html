@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RLlama Optimization Guide – Bayesian Reward Tuning</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; line-height: 1.6; padding: 2rem; max-width: 900px; margin: auto; }
+    h1, h2, h3 { margin-top: 1.5rem; }
+    pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; }
+    code { font-family: monospace; }
+    ul { margin-left: 1.5rem; }
+  </style>
+</head>
+<body>
+
+  <h1>RLlama Optimization Guide: Tuning Rewards with Bayesian Optimization</h1>
+  <p>Manually tuning reward weights and scheduling parameters can be time-consuming and often leads to suboptimal results. RLlama integrates with the powerful <code>Optuna</code> library to automate this process using Bayesian Optimization via the <code>BayesianRewardOptimizer</code>.</p>
+
+  <h2>1. Prerequisites: Install Optuna</h2>
+  <p>If you haven't already, you need to install Optuna:</p>
+  <pre><code class="language-bash">pip install optuna</code></pre>
+  <p>You might also want visualization tools provided by Optuna:</p>
+  <pre><code class="language-bash">pip install optuna-dashboard  # For a web dashboard
+pip install plotly matplotlib # For plotting functions</code></pre>
+
+  <h2>2. The <code>BayesianRewardOptimizer</code></h2>
+  <p>This class orchestrates the optimization process.</p>
+  <ul>
+    <li><strong>Purpose:</strong> To find the optimal set of reward configuration parameters (initial weights, decay rates, component-specific parameters) that maximize (or minimize) a user-defined performance metric obtained by running RL training.</li>
+    <li><strong>Core Idea:</strong> It uses Optuna's samplers (often Tree-structured Parzen Estimator – TPE) to intelligently suggest new parameter combinations to try based on the results of previous trials.</li>
+  </ul>
+
+  <h2>3. Defining the Search Space</h2>
+  <p>You need to tell the optimizer <em>which</em> parameters in your reward configuration you want to tune and <em>what</em> ranges or choices are allowed for each. This is done using a dictionary structure that mirrors your <code>RewardConfig</code> but uses Optuna's suggestion methods.</p>
+  <p><strong>Example <code>search_space</code> Dictionary:</strong></p>
+  <pre><code class="language-python">import optuna
+
+search_space = {
+    "reward_shaping": {
+        "goal_reward": {
+            "params": {
+                "target_reward": lambda trial: trial.suggest_float("goal_target_reward", 0.5, 5.0)
+            },
+            "weight_schedule": {
+                "initial_weight": lambda trial: trial.suggest_float("goal_initial_weight", 1.0, 50.0, log=True)
+            }
+        },
+        "step_penalty": {
+            "params": {
+                "penalty": lambda trial: trial.suggest_float("penalty_value", -0.5, -0.001)
+            },
+            "weight_schedule": {
+                "initial_weight": lambda trial: trial.suggest_float("penalty_initial_weight", 0.1, 10.0),
+                "decay_rate": lambda trial: trial.suggest_float("penalty_decay_rate", 0.99, 0.9999)
+            }
+        }
+    }
+    # You can include other tunable sections (e.g., agent hyperparameters)
+}
+</code></pre>
+
+  <h2>4. Writing the Objective Function</h2>
+  <p>This function defines <em>what</em> the optimizer is trying to achieve.</p>
+  <ul>
+    <li><strong>Signature:</strong> <code>objective(trial: optuna.trial.Trial) → float</code></li>
+    <li><strong>Purpose:</strong></li>
+    <ol>
+      <li>Receive suggested parameters via the <code>trial</code> object.</li>
+      <li>Generate a complete configuration dictionary from base + suggestions.</li>
+      <li>Run an RL training/evaluation session with that configuration.</li>
+      <li>Compute a scalar performance metric (e.g., average return).</li>
+      <li>Return that metric for Optuna to guide its next suggestions.</li>
+    </ol>
+  </ul>
+  <p><strong>Conceptual <code>objective</code> Function:</strong></p>
+  <pre><code class="language-python">def objective(trial, base_config, search_space, component_registry):
+    # 1. Apply suggestions to base_config
+    suggested = {}
+    def apply_space(space, base, dest):
+        for k, v in space.items():
+            if isinstance(v, dict):
+                dest[k] = {}
+                apply_space(v, base.get(k, {}), dest[k])
+            elif callable(v):
+                dest[k] = v(trial)
+    apply_space(search_space, base_config, suggested)
+    trial_config = merge_configs(base_config, suggested)
+
+    # 2. Setup environment, agent, components...
+    env = gym.make("FrozenLake-v1")
+    # Instantiate components from trial_config, compose & shape rewards
+
+    # 3. Run simplified training loop, accumulate shaped rewards
+    # ...
+
+    # 4. Compute and return performance metric
+    metric = compute_metric(all_episode_rewards)
+    return metric</code></pre>
+
+  <h2>5. Running the Optimization</h2>
+  <p>Instantiate <code>BayesianRewardOptimizer</code> and call its <code>optimize</code> method:</p>
+  <pre><code class="language-python">from rllama.optimization import BayesianRewardOptimizer
+
+optimizer = BayesianRewardOptimizer(
+    base_config=base_config,
+    search_space=search_space,
+    objective_function=objective,
+    objective_kwargs={
+        "base_config": base_config,
+        "search_space": search_space,
+        "component_registry": component_registry
+    },
+    n_trials=100,
+    study_name="rllama_reward_tuning",
+    storage="sqlite:///rllama_tuning.db",
+    direction="maximize"
+)
+
+best_params, best_value, study = optimizer.optimize()
+print(f"Best value: {best_value}")
+print(best_params)</code></pre>
+
+  <h2>6. Analyzing Results</h2>
+  <p>The <code>study</code> object returned can be visualized with Optuna:</p>
+  <pre><code class="language-python">import optuna.visualization as vis
+
+vis.plot_optimization_history(study).show()
+vis.plot_param_importances(study).show()
+vis.plot_slice(study, params=["penalty_decay_rate", "goal_initial_weight"]).show()</code></pre>
+  <p>Or launch <code>optuna-dashboard sqlite:///rllama_tuning.db</code> for an interactive UI.</p>
+
+</body>
+</html>
