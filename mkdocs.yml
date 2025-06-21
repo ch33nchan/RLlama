@@ -1,56 +1,54 @@
 site_name: RLlama Documentation
 site_description: A composable reward engineering framework for reinforcement learning
-site_url: https://ch33nchan.github.io/rllama/
-repo_url: https://github.com/ch33nchan/rllama
-repo_name: ch33nchan/rllama
-
+site_author: ch33nchan
+repo_url: https://github.com/ch33nchan/RLlama
 theme:
   name: material
   palette:
     primary: indigo
-    accent: deep orange
-  logo: docs/images/llamagym.jpg
-  favicon: docs/images/llamagym.jpg
+    accent: indigo
   features:
+    - navigation.instant
+    - navigation.tracking
     - navigation.tabs
     - navigation.sections
-    - navigation.expand
+    - toc.integrate
     - search.suggest
     - search.highlight
-    - content.code.copy
-
-nav:
-  - Home: index.md
-  - Understanding RLlama:
-    - Why RLlama?: why-rllama.md
-    - Without RLlama: without-rllama.md
-    - With RLlama: with-rllama.md
-    - Core Concepts: concepts.md
-  - Getting Started:
-    - Installation: installation.md
-    - Quickstart: quickstart.md
-    - Basic Usage: usage.md
-  - Guides:
-    - Reward Component Design: component-design.md
-    - Optimization Guide: optimization_guide.md
-    - Reward Cookbook: cookbook.md
-    - Integration with RL Frameworks: integration.md
-  - API Reference:
-    - Overview: api/overview.md
-  - Examples:
-    - Basic Examples: examples/basic.md
-    - Advanced Examples: examples/advanced.md
-
 markdown_extensions:
-  - pymdownx.highlight:
-      anchor_linenums: true
+  - pymdownx.highlight
   - pymdownx.superfences
-  - pymdownx.inlinehilite
   - admonition
   - footnotes
-  - tables
-  - toc:
-      permalink: true
-
-plugins:
-  - search
+  - attr_list
+nav:
+  - Home: index.md
+  - Introduction:
+    - Overview: introduction/overview.md
+    - Features: introduction/features.md
+  - Installation:
+    - Requirements: installation/requirements.md
+    - Methods: installation/methods.md
+    - Configuration: installation/configuration.md
+    - Verification: installation/verification.md
+  - Getting Started:
+    - Hello World: getting-started/hello-world.md
+    - Basic Usage: getting-started/basic-usage.md
+    - First Reward System: getting-started/first-reward-system.md
+    - Common Patterns: getting-started/common-patterns.md
+  - Examples:
+    - Overview: examples/overview.md
+    - CartPole: examples/cartpole.md
+    - Mountain Car: examples/mountain-car.md
+    - Lunar Lander: examples/lunar-lander.md
+    - Maze Environment: examples/maze-environment.md
+  - Concepts:
+    - Reward Engineering: concepts/reward-engineering.md
+  - Reward Engine:
+    - Creating: reward-engine/creating.md
+    - Adding Components: reward-engine/adding-components.md
+    - Setting Weights: reward-engine/setting-weights.md
+    - Computing Rewards: reward-engine/computing-rewards.md
+    - Analyzing Contributions: reward-engine/analyzing-contributions.md
+  - Cheatsheet: cheatsheet.md
+  - Glossary: glossary.md
