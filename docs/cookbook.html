@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>cookbook</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<p>Alright, let’s create the content for the
+<code>docs/cookbook.md</code> file. This will contain practical examples
+and recipes for common reward engineering tasks using RLlama.</p>
+<p>Here’s the proposed content for the new file:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode markdown:/users/cheencheen/desktop/git/rl/rllama/docs/cookbook.md"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu"># RLlama Cookbook: Practical Recipes</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>This cookbook provides practical examples and patterns for implementing common reward engineering techniques using RLlama.</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">## Recipe 1: Basic Goal Reward + Step Penalty</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>This is the most common starting point. Reward the agent for reaching a goal and penalize it slightly for each step taken.</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>**Components:**</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="ss">*   </span><span class="in">`GoalReward`</span>: Provides a positive reward when a goal condition is met (e.g., <span class="in">`info[&#39;is_success&#39;] == True`</span>).</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="ss">*   </span><span class="in">`StepPenalty`</span>: Provides a small negative reward for every step.</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>**Configuration (`config.yaml`):**</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="in">```yaml</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu">reward_shaping</span><span class="kw">:</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">goal</span><span class="kw">:</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> GoalReward</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">reward_value</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="at"> </span><span class="kw">}</span><span class="co"> # Or any positive value</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weight_schedule</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">initial_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="kw">,</span><span class="at"> </span><span class="fu">schedule_type</span><span class="kw">:</span><span class="at"> constant </span><span class="kw">}</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">time_cost</span><span class="kw">:</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> StepPenalty</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">penalty</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.01</span><span class="at"> </span><span class="kw">}</span><span class="co"> # Small negative value</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weight_schedule</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">initial_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="kw">,</span><span class="at"> </span><span class="fu">schedule_type</span><span class="kw">:</span><span class="at"> constant </span><span class="kw">}</span></span></code></pre></div>
+<p><strong>Implementation Notes:</strong></p>
+<ul>
+<li>Ensure your environment’s <code>info</code> dictionary contains a
+boolean flag (like <code>is_success</code>) that <code>GoalReward</code>
+can check. You might need to subclass <code>GoalReward</code> if your
+condition is different.</li>
+<li>Adjust <code>reward_value</code> and <code>penalty</code> based on
+the expected episode length and desired behavior.</li>
+</ul>
+<h2
+id="recipe-2-sparse-reward-with-potential-based-shaping-distance-reward">Recipe
+2: Sparse Reward with Potential-Based Shaping (Distance Reward)</h2>
+<p>In environments with sparse rewards (e.g., only getting a reward at
+the very end), potential-based reward shaping can provide denser
+guidance. Rewarding based on distance reduction is a common form.</p>
+<p><strong>Components:</strong></p>
+<ul>
+<li><code>GoalReward</code>: For the final success signal.</li>
+<li><code>DistanceReward</code> (Custom): Calculates reward based on the
+change in distance to the goal.</li>
+</ul>
+<p><strong>Custom Component
+(<code>distance_reward.py</code>):</strong></p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> rllama.rewards <span class="im">import</span> RewardComponent</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DistanceReward(RewardComponent):</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, potential_scale: <span class="bu">float</span> <span class="op">=</span> <span class="fl">1.0</span>, gamma: <span class="bu">float</span> <span class="op">=</span> <span class="fl">0.99</span>):</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.potential_scale <span class="op">=</span> potential_scale</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.gamma <span class="op">=</span> gamma <span class="co"># Discount factor of the RL algorithm</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.previous_potential <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> _calculate_potential(<span class="va">self</span>, info: <span class="bu">dict</span>) <span class="op">-&gt;</span> <span class="bu">float</span>:</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">&quot;&quot;&quot;Calculates potential based on distance. Lower distance = higher potential.&quot;&quot;&quot;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        agent_pos <span class="op">=</span> info.get(<span class="st">&quot;agent_pos&quot;</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        target_pos <span class="op">=</span> info.get(<span class="st">&quot;target_pos&quot;</span>)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> agent_pos <span class="kw">is</span> <span class="va">None</span> <span class="kw">or</span> target_pos <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="fl">0.0</span> <span class="co"># Or some default potential</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        distance <span class="op">=</span> np.linalg.norm(np.array(agent_pos) <span class="op">-</span> np.array(target_pos))</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Example potential: negative distance (closer is better/less negative)</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Scale it to prevent overpowering other rewards</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        potential <span class="op">=</span> <span class="op">-</span>distance <span class="op">*</span> <span class="va">self</span>.potential_scale</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> potential</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> calculate_reward(<span class="va">self</span>, raw_reward: <span class="bu">float</span>, info: <span class="bu">dict</span>, context: <span class="bu">dict</span>, <span class="op">**</span>kwargs) <span class="op">-&gt;</span> <span class="bu">float</span>:</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        current_potential <span class="op">=</span> <span class="va">self</span>._calculate_potential(info)</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        shaping_reward <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.previous_potential <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Potential-based shaping formula: gamma * P(s&#39;) - P(s)</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>            shaping_reward <span class="op">=</span> <span class="va">self</span>.gamma <span class="op">*</span> current_potential <span class="op">-</span> <span class="va">self</span>.previous_potential</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Update previous potential for next step</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Reset if episode ended (check context)</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        terminated <span class="op">=</span> context.get(<span class="st">&quot;terminated&quot;</span>, <span class="va">False</span>)</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>        truncated <span class="op">=</span> context.get(<span class="st">&quot;truncated&quot;</span>, <span class="va">False</span>)</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> terminated <span class="kw">or</span> truncated:</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.previous_potential <span class="op">=</span> <span class="va">None</span> <span class="co"># Reset for next episode start</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.previous_potential <span class="op">=</span> current_potential</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>        <span class="co"># This component ONLY provides the shaping term</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> shaping_reward</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Optional: Add a reset method if needed outside of context checks</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>    <span class="co"># def reset(self):</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>    <span class="co">#    self.previous_potential = None</span></span></code></pre></div>
+<p><strong>Configuration (<code>config.yaml</code>):</strong></p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reward_shaping</span><span class="kw">:</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">goal</span><span class="kw">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> GoalReward</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">reward_value</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="at"> </span><span class="kw">}</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weight_schedule</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">initial_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="kw">,</span><span class="at"> </span><span class="fu">schedule_type</span><span class="kw">:</span><span class="at"> constant </span><span class="kw">}</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">distance_shaping</span><span class="kw">:</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> DistanceReward</span><span class="co"> # Your custom class</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">potential_scale</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.1</span><span class="kw">,</span><span class="at"> </span><span class="fu">gamma</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.99</span><span class="at"> </span><span class="kw">}</span><span class="co"> # Adjust scale and gamma</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weight_schedule</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">initial_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="kw">,</span><span class="at"> </span><span class="fu">schedule_type</span><span class="kw">:</span><span class="at"> constant </span><span class="kw">}</span></span></code></pre></div>
+<p><strong>Implementation Notes:</strong></p>
+<ul>
+<li>Requires <code>agent_pos</code> and <code>target_pos</code> (or
+similar) in the <code>info</code> dictionary.</li>
+<li>The <code>gamma</code> parameter in the component should match the
+discount factor used by your RL agent for the theoretical guarantees of
+potential-based shaping to hold.</li>
+<li>The <code>potential_scale</code> needs tuning; too high, and the
+agent might exploit the shaping term; too low, and it won’t provide
+enough guidance.</li>
+<li>Remember to pass <code>terminated</code> and <code>truncated</code>
+flags in the <code>context</code> dictionary when calling
+<code>shaper.shape</code>.</li>
+</ul>
+<h2 id="recipe-3-curriculum-learning-via-weight-scheduling">Recipe 3:
+Curriculum Learning via Weight Scheduling</h2>
+<p>Gradually introduce or fade out reward components to guide the agent
+through different learning stages.</p>
+<p><strong>Scenario:</strong> Initially, strongly penalize collisions.
+As the agent learns to avoid them, reduce the penalty’s weight and
+increase the weight of an efficiency reward (e.g., reaching the goal
+faster).</p>
+<p><strong>Components:</strong></p>
+<ul>
+<li><code>GoalReward</code></li>
+<li><code>CollisionPenalty</code> (Custom or built-in)</li>
+<li><code>EfficiencyBonus</code> (Custom, e.g.,
+<code>1 / steps_in_episode</code> if goal reached)</li>
+</ul>
+<p><strong>Configuration (<code>config.yaml</code>):</strong></p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reward_shaping</span><span class="kw">:</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">goal</span><span class="kw">:</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> GoalReward</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">reward_value</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="at"> </span><span class="kw">}</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weight_schedule</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">initial_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="kw">,</span><span class="at"> </span><span class="fu">schedule_type</span><span class="kw">:</span><span class="at"> constant </span><span class="kw">}</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">safety</span><span class="kw">:</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> CollisionPenalty</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">penalty</span><span class="kw">:</span><span class="at"> </span><span class="fl">-5.0</span><span class="at"> </span><span class="kw">}</span><span class="co"> # High initial penalty</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weight_schedule</span><span class="kw">:</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">initial_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">schedule_type</span><span class="kw">:</span><span class="at"> exponential</span><span class="co"> # Or linear</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">decay_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.9999</span><span class="co"> # Slowly decrease weight</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">decay_steps</span><span class="kw">:</span><span class="at"> </span><span class="dv">100</span><span class="co"> # Apply decay every 100 global steps</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">min_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.1</span><span class="co"> # Maintain a small penalty</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">speed</span><span class="kw">:</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> EfficiencyBonus</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">max_bonus</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span><span class="at"> </span><span class="kw">}</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weight_schedule</span><span class="kw">:</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">initial_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.0</span><span class="co"> # Start with no efficiency bonus</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">schedule_type</span><span class="kw">:</span><span class="at"> linear</span><span class="co"> # Gradually increase weight</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">end_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="co"> # Target weight</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co">      # Need start_step and duration for linear schedule (assuming shaper supports this)</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">schedule_start_step</span><span class="kw">:</span><span class="at"> </span><span class="dv">10000</span><span class="co"> # Start increasing after 10k steps</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">schedule_duration_steps</span><span class="kw">:</span><span class="at"> </span><span class="dv">50000</span><span class="co"> # Reach full weight over 50k steps</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="co">      # OR use exponential increase if preferred/supported</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="co">      # schedule_type: exponential</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="co">      # decay_rate: 1.0001 # Increase rate (use &gt; 1)</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="co">      # decay_steps: 100</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a><span class="co">      # max_weight: 1.0</span></span></code></pre></div>
+<p><strong>Implementation Notes:</strong></p>
+<ul>
+<li>Requires <code>CollisionPenalty</code> and
+<code>EfficiencyBonus</code> components to be defined.</li>
+<li>The <code>RewardShaper</code> needs to support the specified
+<code>schedule_type</code> (e.g., <code>linear</code>,
+<code>exponential</code> increase/decrease). You might need to extend
+the shaper’s scheduling logic if only constant and exponential decay are
+built-in.</li>
+<li>Tune the schedule parameters (<code>decay_rate</code>,
+<code>decay_steps</code>, <code>min_weight</code>,
+<code>end_weight</code>, <code>schedule_start_step</code>,
+<code>schedule_duration_steps</code>) carefully based on the expected
+total training steps.</li>
+<li>Remember to call <code>shaper.update_weights(global_step)</code>
+consistently in your training loop.</li>
+</ul>
+<h2 id="recipe-4-using-context-for-state-dependent-rewards">Recipe 4:
+Using Context for State-Dependent Rewards</h2>
+<p>Modify rewards based on information not directly available in the
+environment’s <code>info</code> dict, passed via the
+<code>context</code>.</p>
+<p><strong>Scenario:</strong> Give a bonus for exploration (visiting new
+states) only during the first half of training.</p>
+<p><strong>Components:</strong></p>
+<ul>
+<li><code>ExplorationBonus</code> (Custom): Rewards visiting less
+frequent states.</li>
+<li>Other components (GoalReward, StepPenalty, etc.)</li>
+</ul>
+<p><strong>Custom Component
+(<code>exploration_bonus.py</code>):</strong></p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> rllama.rewards <span class="im">import</span> RewardComponent</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> collections <span class="im">import</span> defaultdict</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ExplorationBonus(RewardComponent):</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, bonus_scale: <span class="bu">float</span> <span class="op">=</span> <span class="fl">0.01</span>, max_training_steps: <span class="bu">int</span> <span class="op">=</span> <span class="dv">1000000</span>):</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.bonus_scale <span class="op">=</span> bonus_scale</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.max_training_steps <span class="op">=</span> max_training_steps</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.state_visit_counts <span class="op">=</span> defaultdict(<span class="bu">int</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> calculate_reward(<span class="va">self</span>, raw_reward: <span class="bu">float</span>, info: <span class="bu">dict</span>, context: <span class="bu">dict</span>, <span class="op">**</span>kwargs) <span class="op">-&gt;</span> <span class="bu">float</span>:</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        global_step <span class="op">=</span> context.get(<span class="st">&quot;global_step&quot;</span>, <span class="dv">0</span>)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Only apply bonus during the first half of training</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> global_step <span class="op">&gt;</span> <span class="va">self</span>.max_training_steps <span class="op">/</span> <span class="dv">2</span>:</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="fl">0.0</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Requires current state representation in context or info</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        current_state <span class="op">=</span> context.get(<span class="st">&quot;agent_state_representation&quot;</span>)</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> current_state <span class="kw">is</span> <span class="va">None</span>:</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>             <span class="co"># Try getting from info if available, otherwise cannot compute</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>             current_state <span class="op">=</span> info.get(<span class="st">&quot;agent_state_representation&quot;</span>)</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>             <span class="cf">if</span> current_state <span class="kw">is</span> <span class="va">None</span>: <span class="cf">return</span> <span class="fl">0.0</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Simple count-based exploration bonus: 1 / sqrt(count)</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Needs a hashable state representation</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span>:</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>            count <span class="op">=</span> <span class="va">self</span>.state_visit_counts[current_state]</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>            bonus <span class="op">=</span> <span class="va">self</span>.bonus_scale <span class="op">/</span> np.sqrt(count <span class="op">+</span> <span class="dv">1</span>) <span class="co"># Add 1 to avoid division by zero</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.state_visit_counts[current_state] <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> bonus</span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">except</span> <span class="pp">TypeError</span>: <span class="co"># State is not hashable (e.g., numpy array)</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>             <span class="bu">print</span>(<span class="st">&quot;Warning: State representation is not hashable for ExplorationBonus.&quot;</span>)</span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>             <span class="co"># Implement alternative state tracking if needed (e.g., discretization, hashing)</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>             <span class="cf">return</span> <span class="fl">0.0</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Optional: Reset counts if needed between runs or phases</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>    <span class="co"># def reset_counts(self):</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    <span class="co">#    self.state_visit_counts.clear()</span></span></code></pre></div>
+<p><strong>Configuration (<code>config.yaml</code>):</strong></p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reward_shaping</span><span class="kw">:</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co">  # ... other components like goal, penalty ...</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">explore</span><span class="kw">:</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> ExplorationBonus</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">bonus_scale</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.01</span><span class="kw">,</span><span class="at"> </span><span class="fu">max_training_steps</span><span class="kw">:</span><span class="at"> </span><span class="dv">1000000</span><span class="at"> </span><span class="kw">}</span><span class="co"> # Match total steps</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weight_schedule</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">initial_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="kw">,</span><span class="at"> </span><span class="fu">schedule_type</span><span class="kw">:</span><span class="at"> constant </span><span class="kw">}</span><span class="co"> # Control via logic inside component</span></span></code></pre></div>
+<p><strong>Implementation Notes:</strong></p>
+<ul>
+<li>The training loop <strong>must</strong> provide
+<code>global_step</code> and a hashable
+<code>agent_state_representation</code> in the <code>context</code>
+dictionary passed to <code>shaper.shape</code>.</li>
+<li>The state visit count can grow large; consider alternatives for very
+large state spaces (e.g., pseudo-counts, hashing).</li>
+<li>This component’s logic controls <em>when</em> it’s active based on
+<code>global_step</code>, even though its weight schedule is
+constant.</li>
+</ul>
+<p>These recipes demonstrate the flexibility of RLlama. Combine and
+adapt these patterns to create sophisticated reward structures tailored
+to your specific RL problem. Remember to leverage the
+<code>context</code> dictionary and weight scheduling for dynamic and
+stateful reward logic. ```</p>
+</body>
+</html>
