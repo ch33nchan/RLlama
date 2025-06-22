@@ -1,3 +1,4 @@
+/* docs/css/theme.css */
 :root {
   --bg: #f9f9fc;
   --fg: #1e1e2f;
@@ -17,29 +18,26 @@
   --btn-fg: #000;
 }
 body {
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--bg) !important;
+  color: var(--fg) !important;
   transition: background 0.3s, color 0.3s;
-}
-nav.sidebar {
-  background: var(--sidebar-bg);
-  color: var(--sidebar-fg);
 }
 .features .card {
   background: var(--card-bg);
+  color: var(--fg);
 }
 .btn {
   background: var(--btn-bg);
   color: var(--btn-fg);
 }
-/* theme slider */
+/* theme toggle slider */
 .theme-switch {
   position: fixed;
   top: 1rem;
   right: 1rem;
   display: flex;
   align-items: center;
-  z-index: 1000;
+  z-index: 20;
 }
 .theme-switch input {
   width: 40px;
@@ -73,4 +71,5 @@ nav.sidebar {
   margin-left: 0.5rem;
   font-size: 0.9rem;
   cursor: pointer;
+  color: var(--fg);
 }
