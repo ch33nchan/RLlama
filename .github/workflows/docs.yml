@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs==1.4.2 mkdocs-material==9.1.8
+          pip install mkdocs mkdocs-material
       
       - name: Deploy docs
         run: |
