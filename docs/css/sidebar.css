@@ -1,41 +1,21 @@
 /* docs/css/sidebar.css */
-.page-with-sidebar {
-  display: flex;
-  min-height: 100vh;
-  margin: 0;
-}
+.page-with-sidebar { display: flex; min-height: 100vh; margin: 0; }
 nav.sidebar {
-  width: 240px;
+  width: 220px;
   background: #1e1e2f;
-  color: #e0e0e0;
+  color: #c5c7d1;
   padding: 1rem;
-  box-sizing: border-box;
-  flex-shrink: 0;
-  overflow-y: auto;
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  position: sticky; top: 0;
+  height: 100vh; overflow-y: auto;
 }
-nav.sidebar ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+nav.sidebar ul { list-style: none; padding: 0; margin: 0; }
 nav.sidebar a {
   display: block;
-  color: #a5adcb;
+  padding: 0.5rem 0.75rem;
+  color: inherit;
   text-decoration: none;
-  padding: 0.5rem 0.25rem;
   border-radius: 4px;
 }
 nav.sidebar a:hover,
-nav.sidebar a.active {
-  background: #343454;
-  color: #fff;
-}
-main {
-  flex: 1;
-  padding: 2rem;
-  box-sizing: border-box;
-  background: #f9f9fc;
-}
+nav.sidebar a.active { background: #343454; color: #fff; }
+main.content { flex: 1; padding: 2rem; background: #f9f9fc; }

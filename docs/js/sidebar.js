@@ -1,7 +1,6 @@
 /* docs/js/sidebar.js */
 (function(){
-  // build the sidebar menu
-  var links = [
+  const links = [
     ['Home','index.html'],
     ['API','overview.html'],
     ['Usage','usage.html'],
@@ -16,28 +15,30 @@
     ['Without RLlama','without-rllama.html'],
     ['Why RLlama','why-rllama.html']
   ];
-  var nav = document.createElement('nav');
+  // build sidebar
+  const nav = document.createElement('nav');
   nav.className = 'sidebar';
-  var ul = document.createElement('ul');
-  links.forEach(function(item){
-    var a = document.createElement('a');
-    a.textContent = item[0];
-    a.href = item[1];
-    if(location.pathname.endsWith(item[1])) a.classList.add('active');
-    var li = document.createElement('li');
-    li.append(a);
-    ul.append(li);
+  const ul = document.createElement('ul');
+  links.forEach(([title,href])=>{
+    const a = document.createElement('a');
+    a.textContent = title;
+    a.href = href;
+    if(location.pathname.endsWith(href)) a.classList.add('active');
+    const li = document.createElement('li');
+    li.appendChild(a);
+    ul.appendChild(li);
   });
-  nav.append(ul);
+  nav.appendChild(ul);
 
-  // wrap existing body in a flex container
-  var wrapper = document.createElement('div');
+  // wrap body content
+  const wrapper = document.createElement('div');
   wrapper.className = 'page-with-sidebar';
-  // move all children into <main>
-  var main = document.createElement('main');
-  Array.from(document.body.childNodes).forEach(function(node){
-    main.append(node);
-  });
-  wrapper.append(nav, main);
-  document.body.append(wrapper);
+  const main = document.createElement('main');
+  main.className = 'content';
+  while(document.body.firstChild){
+    main.appendChild(document.body.firstChild);
+  }
+  wrapper.appendChild(nav);
+  wrapper.appendChild(main);
+  document.body.appendChild(wrapper);
 })();
