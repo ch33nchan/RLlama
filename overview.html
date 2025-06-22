@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Reward Component Design</title>
+  <title>API Reference Overview</title>
   <style>
     code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
@@ -91,57 +91,22 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Reward Component Design</h1>
+<h1 class="title">API Reference Overview</h1>
 </header>
-<h1 id="reward-component-design">Reward Component Design</h1>
-<p>This guide explains how to design custom reward components in RLlama,
-including best practices and advanced techniques.</p>
-<h2 id="basic-component-structure">Basic Component Structure</h2>
-<p>Every reward component in RLlama inherits from the
-<code>BaseReward</code> class:</p>
+<h1 id="api-reference-overview">API Reference Overview</h1>
+<p>This page provides an overview of the main classes and functions in
+RLlama.</p>
+<h2 id="rewardengine">RewardEngine</h2>
+<p>The central component that manages all reward components.</p>
 <div class="sourceCode" id="cb1"><pre
-class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> rllama.rewards.base <span class="im">import</span> BaseReward</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MyCustomReward(BaseReward):</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, param1<span class="op">=</span>default1, param2<span class="op">=</span>default2):</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">super</span>().<span class="fu">__init__</span>()</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.param1 <span class="op">=</span> param1</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.param2 <span class="op">=</span> param2</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        </span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> compute(<span class="va">self</span>, context):</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Extract relevant information from context</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Perform reward calculation</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Return a numerical reward value</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> reward_value</span></code></pre></div>
-<h2 id="the-context-object">The Context Object</h2>
-<p>The <code>context</code> parameter passed to the <code>compute</code>
-method is a dictionary containing all the information needed to
-calculate rewards. Common keys include:</p>
-<ul>
-<li><code>state</code>: The current state of the environment</li>
-<li><code>action</code>: The action taken by the agent</li>
-<li><code>next_state</code>: The resulting state after taking the
-action</li>
-<li><code>done</code>: A boolean indicating if the episode is
-complete</li>
-<li><code>response</code>: For language models, the generated text</li>
-<li><code>history</code>: For sequential tasks, the history of previous
-states/responses</li>
-</ul>
-<p>Your component should extract the information it needs from this
-context object.</p>
-<h2 id="best-practices">Best Practices</h2>
-<ol type="1">
-<li><strong>Single Responsibility</strong>: Each component should focus
-on a single aspect of behavior</li>
-<li><strong>Robust to Missing Data</strong>: Handle cases where expected
-data is missing</li>
-<li><strong>Configurable Parameters</strong>: Make important values
-configurable</li>
-<li><strong>Normalized Output Range</strong>: Keep rewards in a
-consistent range</li>
-<li><strong>Documentation</strong>: Document what your component does
-and how it works</li>
-</ol>
+class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>engine <span class="op">=</span> RewardEngine()</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>engine.add_component(component)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>engine.compute(context)</span></code></pre></div>
+<h2 id="basereward">BaseReward</h2>
+<p>The base class for all reward components.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MyReward(BaseReward):</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> compute(<span class="va">self</span>, context):</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> reward_value</span></code></pre></div>
 </body>
 </html>
