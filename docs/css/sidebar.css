@@ -1,0 +1,41 @@
+/* docs/css/sidebar.css */
+.page-with-sidebar {
+  display: flex;
+  min-height: 100vh;
+  margin: 0;
+}
+nav.sidebar {
+  width: 240px;
+  background: #1e1e2f;
+  color: #e0e0e0;
+  padding: 1rem;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+nav.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+nav.sidebar a {
+  display: block;
+  color: #a5adcb;
+  text-decoration: none;
+  padding: 0.5rem 0.25rem;
+  border-radius: 4px;
+}
+nav.sidebar a:hover,
+nav.sidebar a.active {
+  background: #343454;
+  color: #fff;
+}
+main {
+  flex: 1;
+  padding: 2rem;
+  box-sizing: border-box;
+  background: #f9f9fc;
+}
