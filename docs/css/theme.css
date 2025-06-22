@@ -8,13 +8,13 @@
   --btn-fg: #fff;
 }
 [data-theme="dark"] {
-  --bg: #1e1e2f;
+  --bg: #181824;
   --fg: #e0e0e0;
-  --sidebar-bg: #111;
-  --sidebar-fg: #888;
-  --card-bg: #222;
+  --sidebar-bg: #11131b;
+  --sidebar-fg: #b0b0b0;
+  --card-bg: #222334;
   --btn-bg: #2196f3;
-  --btn-fg: #000;
+  --btn-fg: #fff;
 }
 body {
   margin: 0;
@@ -34,4 +34,20 @@ body {
 }
 .btn:hover {
   opacity: 0.9;
+}
+/* Theme toggle */
+.theme-switch {
+  position: fixed;
+  top: 1.5rem;
+  right: 2.5rem;
+  z-index: 100;
+  background: transparent;
+}
+.theme-switch input {
+  accent-color: var(--btn-bg);
+  margin-right: 0.3em;
+}
+.theme-switch label {
+  font-size: 1rem;
+  color: var(--fg);
 }
