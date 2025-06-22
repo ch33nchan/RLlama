@@ -1,9 +1,18 @@
 /* docs/css/home.css */
+.page-with-sidebar {
+  display: flex;
+}
+main.content {
+  margin-left: 240px;
+  padding: 2rem;
+  width: calc(100% - 240px);
+  width: 100%;
+  box-sizing: border-box;
+}
 .hero,
 .about,
 .features {
-  max-width: 720px;
-  margin: 0 auto 2rem;
+  margin-bottom: 2rem;
 }
 .hero {
   background: var(--btn-bg) url('images/llamagym.jpg') no-repeat center/cover;
@@ -12,11 +21,20 @@
   padding: 4rem 2rem;
   border-radius: 8px;
 }
-.hero h1 { font-size: 2.5rem; margin-bottom: 1rem; }
-.hero p { font-size: 1.2rem; margin-bottom: 1.5rem; }
+.hero h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+.hero p {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+.about h2 {
+  margin-top: 0;
+}
 .features {
   display: grid;
-  grid-template-columns: repeat(auto-fit,minmax(200px,1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.5rem;
 }
 .features .card {
@@ -25,4 +43,6 @@
   border-radius: 6px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.features h3 { margin-top: 0; }
+.features h3 {
+  margin-top: 0;
+}

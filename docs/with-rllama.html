@@ -26,6 +26,9 @@
 <link rel="stylesheet" href="css/sidebar.css">
 <link rel="stylesheet" href="css/theme.css">
 <link rel="stylesheet" href="css/home.css">
+<link rel="stylesheet" href="css/sidebar.css">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/home.css">
 </head>
 <body>
 <header id="title-block-header">
@@ -640,6 +643,8 @@ with: python-version: ‘3.9’ - name: Install dependencies run: | python
 -m pip install –upgrade pip pip install mkdocs mkdocs-material
 mkdocstrings[python] - name: Deploy docs run: mkdocs gh-deploy
 –force</p>
+<script src="js/theme-toggle.js"></script>
+<script src="js/sidebar.js"></script>
 <script src="js/theme-toggle.js"></script>
 <script src="js/sidebar.js"></script>
 </body>
