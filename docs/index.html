@@ -1,37 +1,69 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <title>RLlama Documentation</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/home.css">
   <link rel="stylesheet" href="css/sidebar.css">
-<link rel="stylesheet" href="css/theme.css"><link rel="stylesheet" href="css/theme.css"></head>
+  <link rel="stylesheet" href="css/theme.css">
+</head>
 <body>
+
+  <!-- Theme switcher -->
+  <div class="theme-switch">
+    <input type="checkbox" id="theme-toggle">
+    <label for="theme-toggle">Dark Mode</label>
+  </div>
+
   <div class="page-with-sidebar">
-    <nav class="sidebar"><!-- sidebar.js will hydrate this --></nav>
+    <!-- Static sidebar -->
+    <nav class="sidebar">
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="overview.html">API</a></li>
+        <li><a href="usage.html">Usage</a></li>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="installation.html">Install</a></li>
+        <li><a href="integration.html">Integration</a></li>
+        <li><a href="optimization_guide.html">Optimize</a></li>
+        <li><a href="component-design.html">Components</a></li>
+        <li><a href="reward_cookbook.html">Cookbook</a></li>
+        <li><a href="concepts.html">Concepts</a></li>
+        <li><a href="with-rllama.html">With RLlama</a></li>
+        <li><a href="without-rllama.html">Without RLlama</a></li>
+        <li><a href="why-rllama.html">Why RLlama</a></li>
+      </ul>
+    </nav>
+
+    <!-- Main content -->
     <main class="content">
       <section class="hero">
         <h1>RLlama: Reward Engineering for Reinforcement Learning</h1>
         <p>Compose, optimize, and analyze reward functions with ease.</p>
         <a class="btn" href="quickstart.html">Get Started</a>
       </section>
+      <section class="about">
+        <h2>About RLlama</h2>
+        <p>RLlama is a Python library for designing, composing, and tuning reward functions in RL. Mix components, auto-search weights, and visualize term contributions.</p>
+      </section>
       <section class="features">
         <div class="card">
-          <h2>Composable</h2>
+          <h3>Composable</h3>
           <p>Mix and match reward components to build complex objectives.</p>
         </div>
         <div class="card">
-          <h2>Optimizable</h2>
+          <h3>Optimizable</h3>
           <p>Auto-search over weights to maximize performance.</p>
         </div>
         <div class="card">
-          <h2>Explainable</h2>
+          <h3>Explainable</h3>
           <p>Visualize contributions of each reward term.</p>
         </div>
       </section>
     </main>
   </div>
-  <script src="js/sidebar.js"></script>
-<script src="js/home-enhance.js"></script><script src="js/theme-toggle.js"></script></body>
+
+  <script src="js/theme-toggle.js"></script>
+</body>
 </html>
