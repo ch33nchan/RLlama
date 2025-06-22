@@ -1,12 +1,11 @@
-/* docs/css/theme.css */
 :root {
   --bg: #f9f9fc;
   --fg: #1e1e2f;
   --sidebar-bg: #1e1e2f;
   --sidebar-fg: #c5c7d1;
   --card-bg: #fff;
-  --btn-bg: #ffdd57;
-  --btn-fg: #1e1e2f;
+  --btn-bg: #0366d6;
+  --btn-fg: #fff;
 }
 [data-theme="dark"] {
   --bg: #1e1e2f;
@@ -14,62 +13,25 @@
   --sidebar-bg: #111;
   --sidebar-fg: #888;
   --card-bg: #222;
-  --btn-bg: #ffc107;
+  --btn-bg: #2196f3;
   --btn-fg: #000;
 }
 body {
-  background: var(--bg) !important;
-  color: var(--fg) !important;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
   transition: background 0.3s, color 0.3s;
 }
-.features .card {
-  background: var(--card-bg);
-  color: var(--fg);
-}
 .btn {
+  display: inline-block;
   background: var(--btn-bg);
   color: var(--btn-fg);
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: opacity 0.2s;
 }
-/* theme toggle slider */
-.theme-switch {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  display: flex;
-  align-items: center;
-  z-index: 20;
-}
-.theme-switch input {
-  width: 40px;
-  height: 20px;
-  -webkit-appearance: none;
-  background: #ccc;
-  border-radius: 10px;
-  position: relative;
-  outline: none;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-.theme-switch input:checked {
-  background: #444;
-}
-.theme-switch input::before {
-  content: "";
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  background: #fff;
-  border-radius: 50%;
-  top: 1px;
-  left: 1px;
-  transition: transform 0.3s;
-}
-.theme-switch input:checked::before {
-  transform: translateX(20px);
-}
-.theme-switch label {
-  margin-left: 0.5rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-  color: var(--fg);
+.btn:hover {
+  opacity: 0.9;
 }

@@ -5,28 +5,27 @@ nav.sidebar {
   width: 220px;
   height: 100vh;
   background: var(--sidebar-bg);
-  color: var(--sidebar-fg);
-  padding: 2rem 1rem;
+  padding: 1.5rem;
   box-sizing: border-box;
   overflow-y: auto;
-  z-index: 100;
 }
 nav.sidebar ul {
-  display: flex;
-  flex-direction: column;
   list-style: none;
-  margin: 0;
   padding: 0;
+}
+nav.sidebar li {
+  margin-bottom: 1rem;
 }
 nav.sidebar a {
   display: block;
-  color: inherit;
+  font-size: 1rem;
+  color: var(--sidebar-fg);
   text-decoration: none;
-  padding: 0.5rem 0;
-  border-radius: 4px;
-  transition: background 0.2s;
 }
 nav.sidebar a:hover,
 nav.sidebar a.active {
-  background: rgba(255,255,255,0.1);
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  padding: 0.5rem;
+  border-radius: 4px;
 }
