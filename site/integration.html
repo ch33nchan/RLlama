@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html data-theme="dark" lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>
+   RLlama - Integration
+  </title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&amp;family=Inter:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+  <link href="css/style.css" rel="stylesheet"/>
+ </head>
+ <body>
+  <button id="sidebar-toggle" title="Toggle Sidebar">
+   <svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+    <line x1="3" x2="15" y1="12" y2="12">
+    </line>
+    <line x1="3" x2="15" y1="6" y2="6">
+    </line>
+    <line x1="3" x2="15" y1="18" y2="18">
+    </line>
+   </svg>
+  </button>
+  <div class="theme-switcher-container">
+   <label class="theme-slider" for="theme-check">
+    <input id="theme-check" title="Toggle Theme" type="checkbox"/>
+    <div class="slider round">
+    </div>
+   </label>
+  </div>
+  <div class="page-container">
+   <aside class="sidebar">
+    <div class="sidebar-header">
+     <a class="nav-link nav-title" href="index.html">
+      RLlama
+     </a>
+    </div>
+    <nav id="sidebar-nav">
+     <a class="nav-link" data-interactive-link="" href="index.html#get-started">
+      Get Started
+     </a>
+     <hr/>
+     <a class="nav-link" data-interactive-link="" href="advanced.html">
+      Advanced
+     </a>
+     <a class="nav-link" data-interactive-link="" href="basic.html">
+      Basic
+     </a>
+     <a class="nav-link" data-interactive-link="" href="component-design.html">
+      Component-design
+     </a>
+     <a class="nav-link" data-interactive-link="" href="concepts.html">
+      Concepts
+     </a>
+     <a class="nav-link" data-interactive-link="" href="cookbook.html">
+      Cookbook
+     </a>
+     <a class="nav-link" data-interactive-link="" href="installation.html">
+      Installation
+     </a>
+     <a class="nav-link" data-interactive-link="" href="integration.html">
+      Integration
+     </a>
+     <a class="nav-link" data-interactive-link="" href="optimization_guide.html">
+      Optimization guide
+     </a>
+     <a class="nav-link" data-interactive-link="" href="overview.html">
+      Overview
+     </a>
+     <a class="nav-link" data-interactive-link="" href="quickstart.html">
+      Quickstart
+     </a>
+     <a class="nav-link" data-interactive-link="" href="reward_cookbook.html">
+      Reward cookbook
+     </a>
+     <a class="nav-link" data-interactive-link="" href="usage.html">
+      Usage
+     </a>
+     <a class="nav-link" data-interactive-link="" href="why-rllama.html">
+      Why-rllama
+     </a>
+     <a class="nav-link" data-interactive-link="" href="with-rllama.html">
+      With-rllama
+     </a>
+     <a class="nav-link" data-interactive-link="" href="without-rllama.html">
+      Without-rllama
+     </a>
+    </nav>
+   </aside>
+   <main class="main-content">
+    <header id="page-header">
+     <h1>
+      Integration with RL Frameworks
+     </h1>
+    </header>
+    <div id="content-container">
+     <body>
+      <header id="title-block-header">
+      </header>
+      <h1 id="integration-with-rl-frameworks">
+       Integration with RL
+Frameworks
+      </h1>
+      <p>
+       RLlama is designed to integrate seamlessly with popular reinforcement
+learning frameworks. This guide covers:
+      </p>
+      <ul>
+       <li>
+        OpenAI Gym environments
+       </li>
+       <li>
+        Stable Baselines3
+       </li>
+       <li>
+        Custom RL environments
+       </li>
+      </ul>
+      <h2 id="openai-gym-integration">
+       OpenAI Gym Integration
+      </h2>
+      <div class="sourceCode" id="cb1">
+       <pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a aria-hidden="true" href="#cb1-1" tabindex="-1"></a><span class="im">from</span> rllama <span class="im">import</span> RewardEngine</span>
+<span id="cb1-2"><a aria-hidden="true" href="#cb1-2" tabindex="-1"></a><span class="im">from</span> rllama.integration <span class="im">import</span> GymWrapper</span>
+<span id="cb1-3"><a aria-hidden="true" href="#cb1-3" tabindex="-1"></a><span class="im">import</span> gym</span>
+<span id="cb1-4"><a aria-hidden="true" href="#cb1-4" tabindex="-1"></a></span>
+<span id="cb1-5"><a aria-hidden="true" href="#cb1-5" tabindex="-1"></a><span class="co"># Create a standard Gym environment</span></span>
+<span id="cb1-6"><a aria-hidden="true" href="#cb1-6" tabindex="-1"></a>env <span class="op">=</span> gym.make(<span class="st">'CartPole-v1'</span>)</span>
+<span id="cb1-7"><a aria-hidden="true" href="#cb1-7" tabindex="-1"></a></span>
+<span id="cb1-8"><a aria-hidden="true" href="#cb1-8" tabindex="-1"></a><span class="co"># Create and configure a reward engine</span></span>
+<span id="cb1-9"><a aria-hidden="true" href="#cb1-9" tabindex="-1"></a>engine <span class="op">=</span> RewardEngine()</span>
+<span id="cb1-10"><a aria-hidden="true" href="#cb1-10" tabindex="-1"></a>engine.add_component(ProgressReward(goal_pos<span class="op">=</span><span class="fl">0.0</span>))</span>
+<span id="cb1-11"><a aria-hidden="true" href="#cb1-11" tabindex="-1"></a></span>
+<span id="cb1-12"><a aria-hidden="true" href="#cb1-12" tabindex="-1"></a><span class="co"># Create the wrapped environment</span></span>
+<span id="cb1-13"><a aria-hidden="true" href="#cb1-13" tabindex="-1"></a>wrapped_env <span class="op">=</span> GymWrapper(engine).wrap(env)</span>
+<span id="cb1-14"><a aria-hidden="true" href="#cb1-14" tabindex="-1"></a></span>
+<span id="cb1-15"><a aria-hidden="true" href="#cb1-15" tabindex="-1"></a><span class="co"># Now use the wrapped environment with any RL algorithm</span></span>
+<span id="cb1-16"><a aria-hidden="true" href="#cb1-16" tabindex="-1"></a>observation <span class="op">=</span> wrapped_env.reset()</span></code></pre>
+      </div>
+      <h2 id="stable-baselines3-integration">
+       Stable Baselines3
+Integration
+      </h2>
+      <div class="sourceCode" id="cb2">
+       <pre class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a aria-hidden="true" href="#cb2-1" tabindex="-1"></a><span class="im">from</span> rllama.integration <span class="im">import</span> StableBaselinesWrapper</span>
+<span id="cb2-2"><a aria-hidden="true" href="#cb2-2" tabindex="-1"></a><span class="im">from</span> stable_baselines3 <span class="im">import</span> PPO</span>
+<span id="cb2-3"><a aria-hidden="true" href="#cb2-3" tabindex="-1"></a></span>
+<span id="cb2-4"><a aria-hidden="true" href="#cb2-4" tabindex="-1"></a><span class="co"># Create a wrapped environment</span></span>
+<span id="cb2-5"><a aria-hidden="true" href="#cb2-5" tabindex="-1"></a>wrapped_env <span class="op">=</span> GymWrapper(engine).wrap(env)</span>
+<span id="cb2-6"><a aria-hidden="true" href="#cb2-6" tabindex="-1"></a></span>
+<span id="cb2-7"><a aria-hidden="true" href="#cb2-7" tabindex="-1"></a><span class="co"># Initialize a Stable Baselines model</span></span>
+<span id="cb2-8"><a aria-hidden="true" href="#cb2-8" tabindex="-1"></a>model <span class="op">=</span> PPO(<span class="st">"MlpPolicy"</span>, wrapped_env, verbose<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb2-9"><a aria-hidden="true" href="#cb2-9" tabindex="-1"></a>model.learn(total_timesteps<span class="op">=</span><span class="dv">50000</span>)</span></code></pre>
+      </div>
+      <script src="js/theme-toggle.js">
+      </script>
+      <script src="js/sidebar.js">
+      </script>
+      <script src="js/theme-toggle.js">
+      </script>
+      <script src="js/sidebar.js">
+      </script>
+      <script src="js/theme-toggle.js">
+      </script>
+      <script src="js/sidebar.js">
+      </script>
+     </body>
+    </div>
+   </main>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
+  </script>
+  <script src="js/main.js">
+  </script>
+ </body>
+</html>

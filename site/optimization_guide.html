@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html data-theme="dark" lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>
+   RLlama - Optimization_guide
+  </title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&amp;family=Inter:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+  <link href="css/style.css" rel="stylesheet"/>
+ </head>
+ <body>
+  <button id="sidebar-toggle" title="Toggle Sidebar">
+   <svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+    <line x1="3" x2="15" y1="12" y2="12">
+    </line>
+    <line x1="3" x2="15" y1="6" y2="6">
+    </line>
+    <line x1="3" x2="15" y1="18" y2="18">
+    </line>
+   </svg>
+  </button>
+  <div class="theme-switcher-container">
+   <label class="theme-slider" for="theme-check">
+    <input id="theme-check" title="Toggle Theme" type="checkbox"/>
+    <div class="slider round">
+    </div>
+   </label>
+  </div>
+  <div class="page-container">
+   <aside class="sidebar">
+    <div class="sidebar-header">
+     <a class="nav-link nav-title" href="index.html">
+      RLlama
+     </a>
+    </div>
+    <nav id="sidebar-nav">
+     <a class="nav-link" data-interactive-link="" href="index.html#get-started">
+      Get Started
+     </a>
+     <hr/>
+     <a class="nav-link" data-interactive-link="" href="advanced.html">
+      Advanced
+     </a>
+     <a class="nav-link" data-interactive-link="" href="basic.html">
+      Basic
+     </a>
+     <a class="nav-link" data-interactive-link="" href="component-design.html">
+      Component-design
+     </a>
+     <a class="nav-link" data-interactive-link="" href="concepts.html">
+      Concepts
+     </a>
+     <a class="nav-link" data-interactive-link="" href="cookbook.html">
+      Cookbook
+     </a>
+     <a class="nav-link" data-interactive-link="" href="installation.html">
+      Installation
+     </a>
+     <a class="nav-link" data-interactive-link="" href="integration.html">
+      Integration
+     </a>
+     <a class="nav-link" data-interactive-link="" href="optimization_guide.html">
+      Optimization guide
+     </a>
+     <a class="nav-link" data-interactive-link="" href="overview.html">
+      Overview
+     </a>
+     <a class="nav-link" data-interactive-link="" href="quickstart.html">
+      Quickstart
+     </a>
+     <a class="nav-link" data-interactive-link="" href="reward_cookbook.html">
+      Reward cookbook
+     </a>
+     <a class="nav-link" data-interactive-link="" href="usage.html">
+      Usage
+     </a>
+     <a class="nav-link" data-interactive-link="" href="why-rllama.html">
+      Why-rllama
+     </a>
+     <a class="nav-link" data-interactive-link="" href="with-rllama.html">
+      With-rllama
+     </a>
+     <a class="nav-link" data-interactive-link="" href="without-rllama.html">
+      Without-rllama
+     </a>
+    </nav>
+   </aside>
+   <main class="main-content">
+    <header id="page-header">
+     <h1>
+      RLlama
+Optimization Guide: Tuning Rewards with Bayesian Optimization
+     </h1>
+    </header>
+    <div id="content-container">
+     <body>
+      <p>
+       Manually tuning reward weights and scheduling parameters can be
+time-consuming and often leads to suboptimal results. RLlama integrates
+with the powerful
+       <code>
+        Optuna
+       </code>
+       library to automate this process
+using Bayesian Optimization via the
+       <code>
+        BayesianRewardOptimizer
+       </code>
+       .
+      </p>
+      <h2 id="prerequisites-install-optuna">
+       1. Prerequisites: Install
+Optuna
+      </h2>
+      <p>
+       If you haven’t already, you need to install Optuna:
+      </p>
+      <div class="sourceCode" id="cb1">
+       <pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a aria-hidden="true" href="#cb1-1" tabindex="-1"></a><span class="ex">pip</span> install optuna</span></code></pre>
+      </div>
+      <p>
+       You might also want visualization tools provided by Optuna:
+      </p>
+      <div class="sourceCode" id="cb2">
+       <pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a aria-hidden="true" href="#cb2-1" tabindex="-1"></a><span class="ex">pip</span> install optuna-dashboard <span class="co"># For a web dashboard</span></span>
+<span id="cb2-2"><a aria-hidden="true" href="#cb2-2" tabindex="-1"></a><span class="ex">pip</span> install plotly matplotlib <span class="co"># For plotting functions</span></span></code></pre>
+      </div>
+      <h2 id="the-bayesianrewardoptimizer">
+       2. The
+       <code>
+        BayesianRewardOptimizer
+       </code>
+      </h2>
+      <p>
+       This class orchestrates the optimization process.
+      </p>
+      <ul>
+       <li>
+        <strong>
+         Purpose:
+        </strong>
+        To find the optimal set of reward
+configuration parameters (initial weights, decay rates,
+component-specific parameters) that maximize (or minimize) a
+user-defined performance metric obtained by running RL training.
+       </li>
+       <li>
+        <strong>
+         Core Idea:
+        </strong>
+        It uses Optuna’s samplers (often
+Tree-structured Parzen Estimator - TPE) to intelligently suggest new
+parameter combinations to try based on the results of previous
+trials.
+       </li>
+      </ul>
+      <h2 id="defining-the-search-space">
+       3. Defining the Search Space
+      </h2>
+      <p>
+       You need to tell the optimizer
+       <em>
+        which
+       </em>
+       parameters in your
+reward configuration you want to tune and
+       <em>
+        what ranges or
+choices
+       </em>
+       are allowed for each. This is done using a dictionary
+structure that mirrors your
+       <code>
+        RewardConfig
+       </code>
+       but uses Optuna’s
+suggestion methods.
+      </p>
+      <p>
+       <strong>
+        Example
+        <code>
+         search_space
+        </code>
+        Dictionary:
+       </strong>
+      </p>
+      <p>
+       Let’s assume your base
+       <code>
+        reward_config.yaml
+       </code>
+       looks like
+this:
+      </p>
+      <div class="sourceCode" id="cb3">
+       <pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb3-1"><a aria-hidden="true" href="#cb3-1" tabindex="-1"></a><span class="co"># base_config.yaml</span></span>
+<span id="cb3-2"><a aria-hidden="true" href="#cb3-2" tabindex="-1"></a><span class="fu">reward_shaping</span><span class="kw">:</span></span>
+<span id="cb3-3"><a aria-hidden="true" href="#cb3-3" tabindex="-1"></a><span class="at">  </span><span class="fu">goal_reward</span><span class="kw">:</span></span>
+<span id="cb3-4"><a aria-hidden="true" href="#cb3-4" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> GoalReward</span></span>
+<span id="cb3-5"><a aria-hidden="true" href="#cb3-5" tabindex="-1"></a><span class="at">    </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">target_reward</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="at"> </span><span class="kw">}</span><span class="co"> # Parameter we might want to tune</span></span>
+<span id="cb3-6"><a aria-hidden="true" href="#cb3-6" tabindex="-1"></a><span class="at">    </span><span class="fu">weight_schedule</span><span class="kw">:</span></span>
+<span id="cb3-7"><a aria-hidden="true" href="#cb3-7" tabindex="-1"></a><span class="at">      </span><span class="fu">initial_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">10.0</span><span class="co"> # Parameter we want to tune</span></span>
+<span id="cb3-8"><a aria-hidden="true" href="#cb3-8" tabindex="-1"></a><span class="at">      </span><span class="fu">schedule_type</span><span class="kw">:</span><span class="at"> constant</span></span>
+<span id="cb3-9"><a aria-hidden="true" href="#cb3-9" tabindex="-1"></a><span class="at">  </span><span class="fu">step_penalty</span><span class="kw">:</span></span>
+<span id="cb3-10"><a aria-hidden="true" href="#cb3-10" tabindex="-1"></a><span class="at">    </span><span class="fu">class</span><span class="kw">:</span><span class="at"> StepPenalty</span></span>
+<span id="cb3-11"><a aria-hidden="true" href="#cb3-11" tabindex="-1"></a><span class="at">    </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">penalty</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.01</span><span class="at"> </span><span class="kw">}</span><span class="co"> # Parameter we want to tune</span></span>
+<span id="cb3-12"><a aria-hidden="true" href="#cb3-12" tabindex="-1"></a><span class="at">    </span><span class="fu">weight_schedule</span><span class="kw">:</span></span>
+<span id="cb3-13"><a aria-hidden="true" href="#cb3-13" tabindex="-1"></a><span class="at">      </span><span class="fu">initial_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="co"> # Parameter we want to tune</span></span>
+<span id="cb3-14"><a aria-hidden="true" href="#cb3-14" tabindex="-1"></a><span class="at">      </span><span class="fu">schedule_type</span><span class="kw">:</span><span class="at"> exponential</span></span>
+<span id="cb3-15"><a aria-hidden="true" href="#cb3-15" tabindex="-1"></a><span class="at">      </span><span class="fu">decay_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.9995</span><span class="co"> # Parameter we want to tune</span></span>
+<span id="cb3-16"><a aria-hidden="true" href="#cb3-16" tabindex="-1"></a><span class="at">      </span><span class="fu">decay_steps</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span>
+<span id="cb3-17"><a aria-hidden="true" href="#cb3-17" tabindex="-1"></a><span class="at">      </span><span class="fu">min_weight</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.0</span></span></code></pre>
+      </div>
+      <p>
+       Your corresponding
+       <code>
+        search_space
+       </code>
+       dictionary in Python
+would look like this:
+      </p>
+      <div class="sourceCode" id="cb4">
+       <pre class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a aria-hidden="true" href="#cb4-1" tabindex="-1"></a><span class="im">import</span> optuna</span>
+<span id="cb4-2"><a aria-hidden="true" href="#cb4-2" tabindex="-1"></a></span>
+<span id="cb4-3"><a aria-hidden="true" href="#cb4-3" tabindex="-1"></a>search_space <span class="op">=</span> {</span>
+<span id="cb4-4"><a aria-hidden="true" href="#cb4-4" tabindex="-1"></a>    <span class="st">"reward_shaping"</span>: {</span>
+<span id="cb4-5"><a aria-hidden="true" href="#cb4-5" tabindex="-1"></a>        <span class="st">"goal_reward"</span>: {</span>
+<span id="cb4-6"><a aria-hidden="true" href="#cb4-6" tabindex="-1"></a>            <span class="st">"params"</span>: {</span>
+<span id="cb4-7"><a aria-hidden="true" href="#cb4-7" tabindex="-1"></a>                <span class="co"># Suggest a float value for target_reward between 0.5 and 5.0</span></span>
+<span id="cb4-8"><a aria-hidden="true" href="#cb4-8" tabindex="-1"></a>                <span class="st">"target_reward"</span>: <span class="kw">lambda</span> trial: trial.suggest_float(<span class="st">"goal_target_reward"</span>, <span class="fl">0.5</span>, <span class="fl">5.0</span>)</span>
+<span id="cb4-9"><a aria-hidden="true" href="#cb4-9" tabindex="-1"></a>            },</span>
+<span id="cb4-10"><a aria-hidden="true" href="#cb4-10" tabindex="-1"></a>            <span class="st">"weight_schedule"</span>: {</span>
+<span id="cb4-11"><a aria-hidden="true" href="#cb4-11" tabindex="-1"></a>                <span class="co"># Suggest a float value for initial_weight between 1.0 and 50.0, possibly on a log scale</span></span>
+<span id="cb4-12"><a aria-hidden="true" href="#cb4-12" tabindex="-1"></a>                <span class="st">"initial_weight"</span>: <span class="kw">lambda</span> trial: trial.suggest_float(<span class="st">"goal_initial_weight"</span>, <span class="fl">1.0</span>, <span class="fl">50.0</span>, log<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb4-13"><a aria-hidden="true" href="#cb4-13" tabindex="-1"></a>            }</span>
+<span id="cb4-14"><a aria-hidden="true" href="#cb4-14" tabindex="-1"></a>        },</span>
+<span id="cb4-15"><a aria-hidden="true" href="#cb4-15" tabindex="-1"></a>        <span class="st">"step_penalty"</span>: {</span>
+<span id="cb4-16"><a aria-hidden="true" href="#cb4-16" tabindex="-1"></a>            <span class="st">"params"</span>: {</span>
+<span id="cb4-17"><a aria-hidden="true" href="#cb4-17" tabindex="-1"></a>                <span class="co"># Suggest a float value for penalty between -0.5 and -0.001</span></span>
+<span id="cb4-18"><a aria-hidden="true" href="#cb4-18" tabindex="-1"></a>                <span class="st">"penalty"</span>: <span class="kw">lambda</span> trial: trial.suggest_float(<span class="st">"penalty_value"</span>, <span class="op">-</span><span class="fl">0.5</span>, <span class="op">-</span><span class="fl">0.001</span>)</span>
+<span id="cb4-19"><a aria-hidden="true" href="#cb4-19" tabindex="-1"></a>            },</span>
+<span id="cb4-20"><a aria-hidden="true" href="#cb4-20" tabindex="-1"></a>            <span class="st">"weight_schedule"</span>: {</span>
+<span id="cb4-21"><a aria-hidden="true" href="#cb4-21" tabindex="-1"></a>                <span class="co"># Suggest a float value for initial_weight between 0.1 and 10.0</span></span>
+<span id="cb4-22"><a aria-hidden="true" href="#cb4-22" tabindex="-1"></a>                <span class="st">"initial_weight"</span>: <span class="kw">lambda</span> trial: trial.suggest_float(<span class="st">"penalty_initial_weight"</span>, <span class="fl">0.1</span>, <span class="fl">10.0</span>),</span>
+<span id="cb4-23"><a aria-hidden="true" href="#cb4-23" tabindex="-1"></a>                <span class="co"># Suggest a float value for decay_rate between 0.99 and 0.9999</span></span>
+<span id="cb4-24"><a aria-hidden="true" href="#cb4-24" tabindex="-1"></a>                <span class="st">"decay_rate"</span>: <span class="kw">lambda</span> trial: trial.suggest_float(<span class="st">"penalty_decay_rate"</span>, <span class="fl">0.99</span>, <span class="fl">0.9999</span>)</span>
+<span id="cb4-25"><a aria-hidden="true" href="#cb4-25" tabindex="-1"></a>                <span class="co"># We could also suggest 'schedule_type' if desired:</span></span>
+<span id="cb4-26"><a aria-hidden="true" href="#cb4-26" tabindex="-1"></a>                <span class="co"># "schedule_type": lambda trial: trial.suggest_categorical("penalty_schedule", ["constant", "exponential"])</span></span>
+<span id="cb4-27"><a aria-hidden="true" href="#cb4-27" tabindex="-1"></a>            }</span>
+<span id="cb4-28"><a aria-hidden="true" href="#cb4-28" tabindex="-1"></a>        }</span>
+<span id="cb4-29"><a aria-hidden="true" href="#cb4-29" tabindex="-1"></a>    }</span>
+<span id="cb4-30"><a aria-hidden="true" href="#cb4-30" tabindex="-1"></a>    <span class="co"># You could also include tunable parameters from other parts of your config,</span></span>
+<span id="cb4-31"><a aria-hidden="true" href="#cb4-31" tabindex="-1"></a>    <span class="co"># like agent hyperparameters, if your objective function uses them.</span></span>
+<span id="cb4-32"><a aria-hidden="true" href="#cb4-32" tabindex="-1"></a>    <span class="co"># "agent_params": {</span></span>
+<span id="cb4-33"><a aria-hidden="true" href="#cb4-33" tabindex="-1"></a>    <span class="co">#    "learning_rate": lambda trial: trial.suggest_float("lr", 1e-5, 1e-2, log=True)</span></span>
+<span id="cb4-34"><a aria-hidden="true" href="#cb4-34" tabindex="-1"></a>    <span class="co"># }</span></span>
+<span id="cb4-35"><a aria-hidden="true" href="#cb4-35" tabindex="-1"></a>}</span></code></pre>
+      </div>
+      <p>
+       <strong>
+        Key Points:
+       </strong>
+      </p>
+      <ul>
+       <li>
+        The structure mirrors your configuration file.
+       </li>
+       <li>
+        Instead of fixed values, you provide lambda functions that take an
+Optuna
+        <code>
+         trial
+        </code>
+        object as input.
+       </li>
+       <li>
+        Inside the lambda, use
+        <code>
+         trial.suggest_float
+        </code>
+        ,
+        <code>
+         trial.suggest_int
+        </code>
+        ,
+        <code>
+         trial.suggest_categorical
+        </code>
+        ,
+etc., to define the parameter’s type, range, and a unique name (e.g.,
+        <code>
+         "goal_initial_weight"
+        </code>
+        ). Optuna uses these names
+internally.
+       </li>
+      </ul>
+      <h2 id="writing-the-objective-function">
+       4. Writing the Objective
+Function
+      </h2>
+      <p>
+       This is the most crucial part. The
+       <code>
+        objective
+       </code>
+       function
+defines
+       <em>
+        what
+       </em>
+       the optimizer is trying to achieve.
+      </p>
+      <ul>
+       <li>
+        <strong>
+         Signature:
+        </strong>
+        <code>
+         objective(trial: optuna.trial.Trial) -&gt; float
+        </code>
+       </li>
+       <li>
+        <strong>
+         Purpose:
+        </strong>
+        <ol type="1">
+         <li>
+          <strong>
+           Receive Suggested Parameters:
+          </strong>
+          Optuna calls this
+function, passing a
+          <code>
+           trial
+          </code>
+          object.
+         </li>
+         <li>
+          <strong>
+           Generate Config:
+          </strong>
+          Use the
+          <code>
+           trial
+          </code>
+          object
+and your
+          <code>
+           search_space
+          </code>
+          definition to create a
+          <em>
+           complete
+          </em>
+          configuration dictionary for this specific trial. The
+          <code>
+           BayesianRewardOptimizer
+          </code>
+          often provides a helper method for
+this, or you can implement it manually by iterating through the
+          <code>
+           search_space
+          </code>
+          and calling the lambda functions.
+         </li>
+         <li>
+          <strong>
+           Run RL Training:
+          </strong>
+          Execute a full RL training (or
+evaluation) run using the generated configuration. This means setting up
+the environment, agent, components, composer, and shaper based
+          <em>
+           on
+the parameters suggested for this trial
+          </em>
+          .
+         </li>
+         <li>
+          <strong>
+           Calculate Performance Metric:
+          </strong>
+          Determine a single
+floating-point value that represents how well the agent performed with
+this configuration (e.g., average return over the last N episodes,
+success rate, minimum steps to goal).
+         </li>
+         <li>
+          <strong>
+           Return Metric:
+          </strong>
+          Return this performance metric.
+Optuna will use this value to decide which parameters to try next.
+         </li>
+        </ol>
+       </li>
+      </ul>
+      <p>
+       <strong>
+        Conceptual
+        <code>
+         objective
+        </code>
+        Function:
+       </strong>
+      </p>
+      <div class="sourceCode" id="cb5">
+       <pre class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a aria-hidden="true" href="#cb5-1" tabindex="-1"></a><span class="im">import</span> optuna</span>
+<span id="cb5-2"><a aria-hidden="true" href="#cb5-2" tabindex="-1"></a><span class="im">import</span> gymnasium <span class="im">as</span> gym</span>
+<span id="cb5-3"><a aria-hidden="true" href="#cb5-3" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb5-4"><a aria-hidden="true" href="#cb5-4" tabindex="-1"></a><span class="co"># Assume imports for your agent, RLlama components, composer, shaper, config loading, etc.</span></span>
+<span id="cb5-5"><a aria-hidden="true" href="#cb5-5" tabindex="-1"></a><span class="co"># Assume component_registry exists (maps class names to classes)</span></span>
+<span id="cb5-6"><a aria-hidden="true" href="#cb5-6" tabindex="-1"></a><span class="co"># Assume base_config is loaded (the non-tunable parts)</span></span>
+<span id="cb5-7"><a aria-hidden="true" href="#cb5-7" tabindex="-1"></a></span>
+<span id="cb5-8"><a aria-hidden="true" href="#cb5-8" tabindex="-1"></a><span class="kw">def</span> merge_configs(base, suggestions):</span>
+<span id="cb5-9"><a aria-hidden="true" href="#cb5-9" tabindex="-1"></a>    <span class="co">"""Helper to merge base config with Optuna suggestions."""</span></span>
+<span id="cb5-10"><a aria-hidden="true" href="#cb5-10" tabindex="-1"></a>    merged <span class="op">=</span> base.copy() <span class="co"># Start with a copy of the base</span></span>
+<span id="cb5-11"><a aria-hidden="true" href="#cb5-11" tabindex="-1"></a>    <span class="cf">for</span> key, value <span class="kw">in</span> suggestions.items():</span>
+<span id="cb5-12"><a aria-hidden="true" href="#cb5-12" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">isinstance</span>(value, <span class="bu">dict</span>):</span>
+<span id="cb5-13"><a aria-hidden="true" href="#cb5-13" tabindex="-1"></a>            <span class="cf">if</span> key <span class="kw">not</span> <span class="kw">in</span> merged <span class="kw">or</span> <span class="kw">not</span> <span class="bu">isinstance</span>(merged[key], <span class="bu">dict</span>):</span>
+<span id="cb5-14"><a aria-hidden="true" href="#cb5-14" tabindex="-1"></a>                merged[key] <span class="op">=</span> {}</span>
+<span id="cb5-15"><a aria-hidden="true" href="#cb5-15" tabindex="-1"></a>            merged[key] <span class="op">=</span> merge_configs(merged.get(key, {}), value)</span>
+<span id="cb5-16"><a aria-hidden="true" href="#cb5-16" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb5-17"><a aria-hidden="true" href="#cb5-17" tabindex="-1"></a>            <span class="co"># This assumes the value is the actual suggested value,</span></span>
+<span id="cb5-18"><a aria-hidden="true" href="#cb5-18" tabindex="-1"></a>            <span class="co"># not the lambda function. The optimizer handles calling the lambdas.</span></span>
+<span id="cb5-19"><a aria-hidden="true" href="#cb5-19" tabindex="-1"></a>            merged[key] <span class="op">=</span> value</span>
+<span id="cb5-20"><a aria-hidden="true" href="#cb5-20" tabindex="-1"></a>    <span class="cf">return</span> merged</span>
+<span id="cb5-21"><a aria-hidden="true" href="#cb5-21" tabindex="-1"></a></span>
+<span id="cb5-22"><a aria-hidden="true" href="#cb5-22" tabindex="-1"></a><span class="kw">def</span> objective(trial: optuna.trial.Trial, base_config: <span class="bu">dict</span>, search_space: <span class="bu">dict</span>, component_registry: <span class="bu">dict</span>) <span class="op">-&gt;</span> <span class="bu">float</span>:</span>
+<span id="cb5-23"><a aria-hidden="true" href="#cb5-23" tabindex="-1"></a>    <span class="co">"""</span></span>
+<span id="cb5-24"><a aria-hidden="true" href="#cb5-24" tabindex="-1"></a><span class="co">    Runs an RL training loop with parameters suggested by Optuna</span></span>
+<span id="cb5-25"><a aria-hidden="true" href="#cb5-25" tabindex="-1"></a><span class="co">    and returns a performance metric.</span></span>
+<span id="cb5-26"><a aria-hidden="true" href="#cb5-26" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb5-27"><a aria-hidden="true" href="#cb5-27" tabindex="-1"></a>    <span class="co"># 1. Generate Config for this Trial</span></span>
+<span id="cb5-28"><a aria-hidden="true" href="#cb5-28" tabindex="-1"></a>    <span class="co"># The BayesianRewardOptimizer might have a helper like:</span></span>
+<span id="cb5-29"><a aria-hidden="true" href="#cb5-29" tabindex="-1"></a>    <span class="co"># trial_config = optimizer.generate_trial_config(trial)</span></span>
+<span id="cb5-30"><a aria-hidden="true" href="#cb5-30" tabindex="-1"></a>    <span class="co"># Or manually:</span></span>
+<span id="cb5-31"><a aria-hidden="true" href="#cb5-31" tabindex="-1"></a>    suggested_params <span class="op">=</span> {}</span>
+<span id="cb5-32"><a aria-hidden="true" href="#cb5-32" tabindex="-1"></a>    <span class="kw">def</span> apply_suggestions(space, base, target):</span>
+<span id="cb5-33"><a aria-hidden="true" href="#cb5-33" tabindex="-1"></a>        <span class="cf">for</span> key, value <span class="kw">in</span> space.items():</span>
+<span id="cb5-34"><a aria-hidden="true" href="#cb5-34" tabindex="-1"></a>            <span class="cf">if</span> <span class="bu">isinstance</span>(value, <span class="bu">dict</span>):</span>
+<span id="cb5-35"><a aria-hidden="true" href="#cb5-35" tabindex="-1"></a>                target[key] <span class="op">=</span> {}</span>
+<span id="cb5-36"><a aria-hidden="true" href="#cb5-36" tabindex="-1"></a>                apply_suggestions(value, base.get(key, {}), target[key])</span>
+<span id="cb5-37"><a aria-hidden="true" href="#cb5-37" tabindex="-1"></a>            <span class="cf">elif</span> <span class="bu">callable</span>(value): <span class="co"># It's a lambda function from search_space</span></span>
+<span id="cb5-38"><a aria-hidden="true" href="#cb5-38" tabindex="-1"></a>                 <span class="co"># Use Optuna trial to get the actual value</span></span>
+<span id="cb5-39"><a aria-hidden="true" href="#cb5-39" tabindex="-1"></a>                target[key] <span class="op">=</span> value(trial)</span>
+<span id="cb5-40"><a aria-hidden="true" href="#cb5-40" tabindex="-1"></a>            <span class="cf">else</span>: <span class="co"># Should not happen if search_space is defined correctly</span></span>
+<span id="cb5-41"><a aria-hidden="true" href="#cb5-41" tabindex="-1"></a>                target[key] <span class="op">=</span> base.get(key) <span class="co"># Fallback? Or error?</span></span>
+<span id="cb5-42"><a aria-hidden="true" href="#cb5-42" tabindex="-1"></a></span>
+<span id="cb5-43"><a aria-hidden="true" href="#cb5-43" tabindex="-1"></a>    apply_suggestions(search_space, base_config, suggested_params)</span>
+<span id="cb5-44"><a aria-hidden="true" href="#cb5-44" tabindex="-1"></a>    trial_config <span class="op">=</span> merge_configs(base_config, suggested_params) <span class="co"># Combine base + suggestions</span></span>
+<span id="cb5-45"><a aria-hidden="true" href="#cb5-45" tabindex="-1"></a></span>
+<span id="cb5-46"><a aria-hidden="true" href="#cb5-46" tabindex="-1"></a>    <span class="co"># --- Setup RL Environment and Agent based on trial_config ---</span></span>
+<span id="cb5-47"><a aria-hidden="true" href="#cb5-47" tabindex="-1"></a>    <span class="cf">try</span>:</span>
+<span id="cb5-48"><a aria-hidden="true" href="#cb5-48" tabindex="-1"></a>        env <span class="op">=</span> gym.make(<span class="st">"FrozenLake-v1"</span>) <span class="co"># Or your env</span></span>
+<span id="cb5-49"><a aria-hidden="true" href="#cb5-49" tabindex="-1"></a>        <span class="co"># agent = YourAgent(**trial_config.get("agent_params", {})) # Configure agent if tuning its params</span></span>
+<span id="cb5-50"><a aria-hidden="true" href="#cb5-50" tabindex="-1"></a></span>
+<span id="cb5-51"><a aria-hidden="true" href="#cb5-51" tabindex="-1"></a>        <span class="co"># --- Setup RLlama Components, Composer, Shaper ---</span></span>
+<span id="cb5-52"><a aria-hidden="true" href="#cb5-52" tabindex="-1"></a>        reward_shaping_config <span class="op">=</span> trial_config.get(<span class="st">"reward_shaping"</span>, {})</span>
+<span id="cb5-53"><a aria-hidden="true" href="#cb5-53" tabindex="-1"></a>        components <span class="op">=</span> {}</span>
+<span id="cb5-54"><a aria-hidden="true" href="#cb5-54" tabindex="-1"></a>        <span class="cf">for</span> name, comp_config <span class="kw">in</span> reward_shaping_config.items():</span>
+<span id="cb5-55"><a aria-hidden="true" href="#cb5-55" tabindex="-1"></a>            cls_name <span class="op">=</span> comp_config.get(<span class="st">"class"</span>)</span>
+<span id="cb5-56"><a aria-hidden="true" href="#cb5-56" tabindex="-1"></a>            params <span class="op">=</span> comp_config.get(<span class="st">"params"</span>, {})</span>
+<span id="cb5-57"><a aria-hidden="true" href="#cb5-57" tabindex="-1"></a>            <span class="cf">if</span> cls_name <span class="kw">in</span> component_registry:</span>
+<span id="cb5-58"><a aria-hidden="true" href="#cb5-58" tabindex="-1"></a>                components[name] <span class="op">=</span> component_registry[cls_name](<span class="op">**</span>params)</span>
+<span id="cb5-59"><a aria-hidden="true" href="#cb5-59" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb5-60"><a aria-hidden="true" href="#cb5-60" tabindex="-1"></a>                 <span class="bu">print</span>(<span class="ss">f"Warning: Class </span><span class="sc">{</span>cls_name<span class="sc">}</span><span class="ss"> not found."</span>)</span>
+<span id="cb5-61"><a aria-hidden="true" href="#cb5-61" tabindex="-1"></a>                 <span class="co"># Handle error appropriately, maybe prune trial</span></span>
+<span id="cb5-62"><a aria-hidden="true" href="#cb5-62" tabindex="-1"></a>                 <span class="co"># raise optuna.TrialPruned()</span></span>
+<span id="cb5-63"><a aria-hidden="true" href="#cb5-63" tabindex="-1"></a></span>
+<span id="cb5-64"><a aria-hidden="true" href="#cb5-64" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> components:</span>
+<span id="cb5-65"><a aria-hidden="true" href="#cb5-65" tabindex="-1"></a>             <span class="bu">print</span>(<span class="st">"Error: No components instantiated for trial."</span>)</span>
+<span id="cb5-66"><a aria-hidden="true" href="#cb5-66" tabindex="-1"></a>             <span class="cf">raise</span> optuna.TrialPruned(<span class="st">"No components"</span>) <span class="co"># Tell Optuna this trial failed early</span></span>
+<span id="cb5-67"><a aria-hidden="true" href="#cb5-67" tabindex="-1"></a></span>
+<span id="cb5-68"><a aria-hidden="true" href="#cb5-68" tabindex="-1"></a>        composer <span class="op">=</span> RewardComposer(components)</span>
+<span id="cb5-69"><a aria-hidden="true" href="#cb5-69" tabindex="-1"></a>        shaper <span class="op">=</span> RewardShaper(composer, reward_shaping_config)</span>
+<span id="cb5-70"><a aria-hidden="true" href="#cb5-70" tabindex="-1"></a></span>
+<span id="cb5-71"><a aria-hidden="true" href="#cb5-71" tabindex="-1"></a>        <span class="co"># --- Run the RL Training Loop (Simplified) ---</span></span>
+<span id="cb5-72"><a aria-hidden="true" href="#cb5-72" tabindex="-1"></a>        training_config <span class="op">=</span> trial_config.get(<span class="st">"training"</span>, {})</span>
+<span id="cb5-73"><a aria-hidden="true" href="#cb5-73" tabindex="-1"></a>        num_episodes <span class="op">=</span> training_config.get(<span class="st">"num_episodes"</span>, <span class="dv">500</span>) <span class="co"># Use fewer episodes for faster HPO</span></span>
+<span id="cb5-74"><a aria-hidden="true" href="#cb5-74" tabindex="-1"></a>        max_steps_episode <span class="op">=</span> training_config.get(<span class="st">"max_steps_per_episode"</span>, <span class="dv">100</span>)</span>
+<span id="cb5-75"><a aria-hidden="true" href="#cb5-75" tabindex="-1"></a>        all_episode_rewards <span class="op">=</span> []</span>
+<span id="cb5-76"><a aria-hidden="true" href="#cb5-76" tabindex="-1"></a>        global_step <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb5-77"><a aria-hidden="true" href="#cb5-77" tabindex="-1"></a></span>
+<span id="cb5-78"><a aria-hidden="true" href="#cb5-78" tabindex="-1"></a>        <span class="cf">for</span> episode <span class="kw">in</span> <span class="bu">range</span>(num_episodes):</span>
+<span id="cb5-79"><a aria-hidden="true" href="#cb5-79" tabindex="-1"></a>            state, info <span class="op">=</span> env.reset()</span>
+<span id="cb5-80"><a aria-hidden="true" href="#cb5-80" tabindex="-1"></a>            terminated <span class="op">=</span> truncated <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb5-81"><a aria-hidden="true" href="#cb5-81" tabindex="-1"></a>            episode_shaped_reward <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb5-82"><a aria-hidden="true" href="#cb5-82" tabindex="-1"></a>            steps_in_episode <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb5-83"><a aria-hidden="true" href="#cb5-83" tabindex="-1"></a>            <span class="cf">while</span> <span class="kw">not</span> terminated <span class="kw">and</span> <span class="kw">not</span> truncated:</span>
+<span id="cb5-84"><a aria-hidden="true" href="#cb5-84" tabindex="-1"></a>                shaper.update_weights(global_step)</span>
+<span id="cb5-85"><a aria-hidden="true" href="#cb5-85" tabindex="-1"></a>                action <span class="op">=</span> agent.select_action(state) <span class="co"># Agent uses its policy</span></span>
+<span id="cb5-86"><a aria-hidden="true" href="#cb5-86" tabindex="-1"></a>                next_state, raw_reward, terminated, truncated, info <span class="op">=</span> env.step(action)</span>
+<span id="cb5-87"><a aria-hidden="true" href="#cb5-87" tabindex="-1"></a>                context <span class="op">=</span> {</span>
+<span id="cb5-88"><a aria-hidden="true" href="#cb5-88" tabindex="-1"></a>                    <span class="st">"global_step"</span>: global_step, <span class="st">"terminated"</span>: terminated, <span class="st">"truncated"</span>: truncated,</span>
+<span id="cb5-89"><a aria-hidden="true" href="#cb5-89" tabindex="-1"></a>                    <span class="co"># Add other necessary context items</span></span>
+<span id="cb5-90"><a aria-hidden="true" href="#cb5-90" tabindex="-1"></a>                }</span>
+<span id="cb5-91"><a aria-hidden="true" href="#cb5-91" tabindex="-1"></a>                shaped_reward <span class="op">=</span> shaper.shape(raw_reward, info, context)</span>
+<span id="cb5-92"><a aria-hidden="true" href="#cb5-92" tabindex="-1"></a>                agent.update(state, action, shaped_reward, next_state, terminated <span class="kw">or</span> truncated)</span>
+<span id="cb5-93"><a aria-hidden="true" href="#cb5-93" tabindex="-1"></a>                state <span class="op">=</span> next_state</span>
+<span id="cb5-94"><a aria-hidden="true" href="#cb5-94" tabindex="-1"></a>                episode_shaped_reward <span class="op">+=</span> shaped_reward</span>
+<span id="cb5-95"><a aria-hidden="true" href="#cb5-95" tabindex="-1"></a>                steps_in_episode <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb5-96"><a aria-hidden="true" href="#cb5-96" tabindex="-1"></a>                global_step <span class="op">+=</span> <span class="dv">1</span></span>
+<span id="cb5-97"><a aria-hidden="true" href="#cb5-97" tabindex="-1"></a>                <span class="cf">if</span> steps_in_episode <span class="op">&gt;=</span> max_steps_episode: truncated <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb5-98"><a aria-hidden="true" href="#cb5-98" tabindex="-1"></a></span>
+<span id="cb5-99"><a aria-hidden="true" href="#cb5-99" tabindex="-1"></a>            all_episode_rewards.append(episode_shaped_reward)</span>
+<span id="cb5-100"><a aria-hidden="true" href="#cb5-100" tabindex="-1"></a></span>
+<span id="cb5-101"><a aria-hidden="true" href="#cb5-101" tabindex="-1"></a>            <span class="co"># Optuna Pruning: Check if trial is unpromising early</span></span>
+<span id="cb5-102"><a aria-hidden="true" href="#cb5-102" tabindex="-1"></a>            <span class="co"># trial.report(intermediate_value, step) # Report intermediate metric</span></span>
+<span id="cb5-103"><a aria-hidden="true" href="#cb5-103" tabindex="-1"></a>            <span class="co"># if trial.should_prune():</span></span>
+<span id="cb5-104"><a aria-hidden="true" href="#cb5-104" tabindex="-1"></a>            <span class="co">#     raise optuna.TrialPruned()</span></span>
+<span id="cb5-105"><a aria-hidden="true" href="#cb5-105" tabindex="-1"></a></span>
+<span id="cb5-106"><a aria-hidden="true" href="#cb5-106" tabindex="-1"></a>        env.close()</span>
+<span id="cb5-107"><a aria-hidden="true" href="#cb5-107" tabindex="-1"></a></span>
+<span id="cb5-108"><a aria-hidden="true" href="#cb5-108" tabindex="-1"></a>        <span class="co"># --- Calculate Performance Metric ---</span></span>
+<span id="cb5-109"><a aria-hidden="true" href="#cb5-109" tabindex="-1"></a>        <span class="co"># Example: Average reward of the last 10% of episodes</span></span>
+<span id="cb5-110"><a aria-hidden="true" href="#cb5-110" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> all_episode_rewards: <span class="cf">return</span> <span class="op">-</span>np.inf <span class="co"># Handle case with no rewards</span></span>
+<span id="cb5-111"><a aria-hidden="true" href="#cb5-111" tabindex="-1"></a>        metric <span class="op">=</span> np.mean(all_episode_rewards[<span class="op">-</span><span class="bu">max</span>(<span class="dv">1</span>, num_episodes <span class="op">//</span> <span class="dv">10</span>):])</span>
+<span id="cb5-112"><a aria-hidden="true" href="#cb5-112" tabindex="-1"></a></span>
+<span id="cb5-113"><a aria-hidden="true" href="#cb5-113" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Trial </span><span class="sc">{</span>trial<span class="sc">.</span>number<span class="sc">}</span><span class="ss"> finished. Metric: </span><span class="sc">{</span>metric<span class="sc">:.4f}</span><span class="ss">"</span>)</span>
+<span id="cb5-114"><a aria-hidden="true" href="#cb5-114" tabindex="-1"></a>        <span class="cf">return</span> metric</span>
+<span id="cb5-115"><a aria-hidden="true" href="#cb5-115" tabindex="-1"></a></span>
+<span id="cb5-116"><a aria-hidden="true" href="#cb5-116" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
+<span id="cb5-117"><a aria-hidden="true" href="#cb5-117" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Trial </span><span class="sc">{</span>trial<span class="sc">.</span>number<span class="sc">}</span><span class="ss"> failed: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb5-118"><a aria-hidden="true" href="#cb5-118" tabindex="-1"></a>        <span class="co"># Consider returning a very bad value or pruning</span></span>
+<span id="cb5-119"><a aria-hidden="true" href="#cb5-119" tabindex="-1"></a>        <span class="co"># return -np.inf</span></span>
+<span id="cb5-120"><a aria-hidden="true" href="#cb5-120" tabindex="-1"></a>        <span class="cf">raise</span> optuna.TrialPruned(<span class="ss">f"Exception during training: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">"</span>)</span></code></pre>
+      </div>
+      <h2 id="running-the-optimization">
+       5. Running the Optimization
+      </h2>
+      <p>
+       Instantiate
+       <code>
+        BayesianRewardOptimizer
+       </code>
+       and call its
+       <code>
+        optimize
+       </code>
+       method.
+      </p>
+      <div class="sourceCode" id="cb6">
+       <pre class="sourceCode python"><code class="sourceCode python"><span id="cb6-1"><a aria-hidden="true" href="#cb6-1" tabindex="-1"></a><span class="im">from</span> rllama.optimization <span class="im">import</span> BayesianRewardOptimizer</span>
+<span id="cb6-2"><a aria-hidden="true" href="#cb6-2" tabindex="-1"></a><span class="co"># Assume objective, base_config, search_space, component_registry are defined</span></span>
+<span id="cb6-3"><a aria-hidden="true" href="#cb6-3" tabindex="-1"></a></span>
+<span id="cb6-4"><a aria-hidden="true" href="#cb6-4" tabindex="-1"></a><span class="co"># --- Optimizer Setup ---</span></span>
+<span id="cb6-5"><a aria-hidden="true" href="#cb6-5" tabindex="-1"></a>optimizer <span class="op">=</span> BayesianRewardOptimizer(</span>
+<span id="cb6-6"><a aria-hidden="true" href="#cb6-6" tabindex="-1"></a>    base_config<span class="op">=</span>base_config,</span>
+<span id="cb6-7"><a aria-hidden="true" href="#cb6-7" tabindex="-1"></a>    search_space<span class="op">=</span>search_space,</span>
+<span id="cb6-8"><a aria-hidden="true" href="#cb6-8" tabindex="-1"></a>    objective_function<span class="op">=</span>objective, <span class="co"># Your objective function</span></span>
+<span id="cb6-9"><a aria-hidden="true" href="#cb6-9" tabindex="-1"></a>    objective_kwargs<span class="op">=</span>{ <span class="co"># Extra fixed arguments for your objective</span></span>
+<span id="cb6-10"><a aria-hidden="true" href="#cb6-10" tabindex="-1"></a>        <span class="st">"base_config"</span>: base_config,</span>
+<span id="cb6-11"><a aria-hidden="true" href="#cb6-11" tabindex="-1"></a>        <span class="st">"search_space"</span>: search_space,</span>
+<span id="cb6-12"><a aria-hidden="true" href="#cb6-12" tabindex="-1"></a>        <span class="st">"component_registry"</span>: component_registry,</span>
+<span id="cb6-13"><a aria-hidden="true" href="#cb6-13" tabindex="-1"></a>    },</span>
+<span id="cb6-14"><a aria-hidden="true" href="#cb6-14" tabindex="-1"></a>    n_trials<span class="op">=</span><span class="dv">100</span>, <span class="co"># Number of different parameter sets to try</span></span>
+<span id="cb6-15"><a aria-hidden="true" href="#cb6-15" tabindex="-1"></a>    study_name<span class="op">=</span><span class="st">"rllama_reward_tuning"</span>,</span>
+<span id="cb6-16"><a aria-hidden="true" href="#cb6-16" tabindex="-1"></a>    storage<span class="op">=</span><span class="st">"sqlite:///rllama_tuning.db"</span>, <span class="co"># Optional: Save study results to DB</span></span>
+<span id="cb6-17"><a aria-hidden="true" href="#cb6-17" tabindex="-1"></a>    direction<span class="op">=</span><span class="st">"maximize"</span> <span class="co"># "maximize" or "minimize" the objective metric</span></span>
+<span id="cb6-18"><a aria-hidden="true" href="#cb6-18" tabindex="-1"></a>)</span>
+<span id="cb6-19"><a aria-hidden="true" href="#cb6-19" tabindex="-1"></a></span>
+<span id="cb6-20"><a aria-hidden="true" href="#cb6-20" tabindex="-1"></a><span class="co"># --- Run Optimization ---</span></span>
+<span id="cb6-21"><a aria-hidden="true" href="#cb6-21" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Starting Bayesian Optimization..."</span>)</span>
+<span id="cb6-22"><a aria-hidden="true" href="#cb6-22" tabindex="-1"></a>best_params, best_value, study <span class="op">=</span> optimizer.optimize()</span>
+<span id="cb6-23"><a aria-hidden="true" href="#cb6-23" tabindex="-1"></a></span>
+<span id="cb6-24"><a aria-hidden="true" href="#cb6-24" tabindex="-1"></a><span class="co"># --- Results ---</span></span>
+<span id="cb6-25"><a aria-hidden="true" href="#cb6-25" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"</span><span class="ch">\n</span><span class="st">Optimization Finished!"</span>)</span>
+<span id="cb6-26"><a aria-hidden="true" href="#cb6-26" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Best Objective Value: </span><span class="sc">{</span>best_value<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-27"><a aria-hidden="true" href="#cb6-27" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Best Parameters Found:"</span>)</span>
+<span id="cb6-28"><a aria-hidden="true" href="#cb6-28" tabindex="-1"></a><span class="im">import</span> json</span>
+<span id="cb6-29"><a aria-hidden="true" href="#cb6-29" tabindex="-1"></a><span class="bu">print</span>(json.dumps(best_params, indent<span class="op">=</span><span class="dv">2</span>))</span>
+<span id="cb6-30"><a aria-hidden="true" href="#cb6-30" tabindex="-1"></a></span>
+<span id="cb6-31"><a aria-hidden="true" href="#cb6-31" tabindex="-1"></a><span class="co"># You can now use 'best_params' to create your final, optimized reward config</span></span></code></pre>
+      </div>
+      <h2 id="analyzing-results">
+       6. Analyzing Results
+      </h2>
+      <p>
+       The
+       <code>
+        optimize
+       </code>
+       method returns the Optuna
+       <code>
+        study
+       </code>
+       object. You can use Optuna’s visualization functions
+to understand the optimization process:
+      </p>
+      <div class="sourceCode" id="cb7">
+       <pre class="sourceCode python"><code class="sourceCode python"><span id="cb7-1"><a aria-hidden="true" href="#cb7-1" tabindex="-1"></a><span class="im">import</span> optuna.visualization <span class="im">as</span> vis</span>
+<span id="cb7-2"><a aria-hidden="true" href="#cb7-2" tabindex="-1"></a></span>
+<span id="cb7-3"><a aria-hidden="true" href="#cb7-3" tabindex="-1"></a><span class="co"># Plot optimization history</span></span>
+<span id="cb7-4"><a aria-hidden="true" href="#cb7-4" tabindex="-1"></a>fig <span class="op">=</span> vis.plot_optimization_history(study)</span>
+<span id="cb7-5"><a aria-hidden="true" href="#cb7-5" tabindex="-1"></a>fig.show()</span>
+<span id="cb7-6"><a aria-hidden="true" href="#cb7-6" tabindex="-1"></a></span>
+<span id="cb7-7"><a aria-hidden="true" href="#cb7-7" tabindex="-1"></a><span class="co"># Plot parameter importance</span></span>
+<span id="cb7-8"><a aria-hidden="true" href="#cb7-8" tabindex="-1"></a>fig <span class="op">=</span> vis.plot_param_importances(study)</span>
+<span id="cb7-9"><a aria-hidden="true" href="#cb7-9" tabindex="-1"></a>fig.show()</span>
+<span id="cb7-10"><a aria-hidden="true" href="#cb7-10" tabindex="-1"></a></span>
+<span id="cb7-11"><a aria-hidden="true" href="#cb7-11" tabindex="-1"></a><span class="co"># Plot relationship between parameters and objective</span></span>
+<span id="cb7-12"><a aria-hidden="true" href="#cb7-12" tabindex="-1"></a>fig <span class="op">=</span> vis.plot_slice(study, params<span class="op">=</span>[<span class="st">"penalty_decay_rate"</span>, <span class="st">"goal_initial_weight"</span>])</span>
+<span id="cb7-13"><a aria-hidden="true" href="#cb7-13" tabindex="-1"></a>fig.show()</span>
+<span id="cb7-14"><a aria-hidden="true" href="#cb7-14" tabindex="-1"></a></span>
+<span id="cb7-15"><a aria-hidden="true" href="#cb7-15" tabindex="-1"></a><span class="co"># For more visualizations and analysis, see the Optuna documentation.</span></span>
+<span id="cb7-16"><a aria-hidden="true" href="#cb7-16" tabindex="-1"></a><span class="co"># If using storage, you can use optuna-dashboard:</span></span>
+<span id="cb7-17"><a aria-hidden="true" href="#cb7-17" tabindex="-1"></a><span class="co"># optuna-dashboard sqlite:///rllama_tuning.db</span></span></code></pre>
+      </div>
+      <p>
+       By following these steps, you can leverage RLlama and Optuna to
+systematically find effective reward configurations for your RL tasks,
+saving significant manual effort and potentially achieving better agent
+performance. Refer to the
+       <code>
+        examples/optimizer_demo.py
+       </code>
+       script
+for a runnable implementation. ```
+      </p>
+      <script src="js/theme-toggle.js">
+      </script>
+      <script src="js/sidebar.js">
+      </script>
+      <script src="js/theme-toggle.js">
+      </script>
+      <script src="js/sidebar.js">
+      </script>
+      <script src="js/theme-toggle.js">
+      </script>
+      <script src="js/sidebar.js">
+      </script>
+     </body>
+    </div>
+   </main>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
+  </script>
+  <script src="js/main.js">
+  </script>
+ </body>
+</html>

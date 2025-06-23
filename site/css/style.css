@@ -1,0 +1,212 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Source+Code+Pro:wght@400;600&display=swap');
+
+:root {
+    --bg-color: #ffffff;
+    --text-color: #212529;
+    --sidebar-bg: #f8f9fa;
+    --border-color: #dee2e6;
+    --link-color: #0d6efd;
+    --link-hover: #0a58ca;
+    --pre-bg: #f8f9fa;
+    --code-color: #333;
+    --footer-text: #6c757d;
+}
+
+body.dark-theme {
+    --bg-color: #121212;
+    --text-color: #e9ecef;
+    --sidebar-bg: #1a1a1a;
+    --border-color: #343a40;
+    --link-color: #6ea8fe;
+    --link-hover: #9ec5fe;
+    --pre-bg: #1e1e1e;
+    --code-color: #d4d4d4;
+    --footer-text: #adb5bd;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.sidebar-sticky-content {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 2.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header .logo {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+.sidebar-header .tagline {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--text-color);
+    opacity: 0.8;
+    max-width: 25ch;
+}
+
+a.logo-link {
+    text-decoration: none;
+}
+
+.sidebar nav {
+    margin-top: 3rem;
+}
+
+.sidebar nav ul {
+    list-style: none;
+}
+
+.sidebar nav li a {
+    display: block;
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 1.1rem;
+    font-weight: 500;
+    padding: 0.8rem 0;
+    transition: color 0.2s;
+    opacity: 0.8;
+}
+
+.sidebar nav li a:hover {
+    color: var(--link-hover);
+    opacity: 1;
+}
+.sidebar nav li a.active {
+    color: var(--link-color);
+    font-weight: 700;
+    opacity: 1;
+}
+
+.content {
+    flex-grow: 1;
+    padding: 4rem;
+    display: flex;
+    justify-content: center;
+}
+
+.page-content {
+    max-width: 800px;
+    width: 100%;
+}
+
+.page-content h1 {
+    font-size: 3rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.page-content h2 {
+    font-size: 2rem;
+    margin-top: 3rem;
+    margin-bottom: 1rem;
+}
+
+.page-content p {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+}
+
+.page-content pre {
+    background-color: var(--pre-bg);
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+.page-content code {
+    font-family: 'Source Code Pro', 'Menlo', 'monospace';
+    color: var(--code-color);
+}
+
+footer {
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.85rem;
+    color: var(--footer-text);
+    background-color: var(--bg-color);
+    border-top: 1px solid var(--border-color);
+}
+
+/* Theme Switcher */
+.theme-switcher-container {
+    margin-top: auto; /* Pushes switcher to the bottom */
+    padding-top: 2rem;
+}
+.theme-switcher {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+}
+.theme-switcher input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border-color);
+    transition: .4s;
+    border-radius: 28px;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: var(--bg-color);
+    box-shadow: 0 0 1px #0003;
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .slider {
+    background-color: var(--link-color);
+}
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
