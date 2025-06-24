@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RLlama - Reward Engineering Framework</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-bash.min.js"></script>
+</head>
+<body>
+    <!-- Theme Toggle -->
+    <div class="theme-toggle" id="themeToggle">
+        <div class="theme-icon sun-icon">☀</div>
+        <div class="theme-icon moon-icon">☽</div>
+    </div>
+
+    <!-- Sidebar Toggle Button -->
+    <button class="sidebar-toggle" id="sidebarToggle">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">RLlama</div>
+        </div>
+        <ul class="sidebar-nav">
+            <li><a href="#" data-page="home" class="nav-link active">Home</a></li>
+            <li class="nav-section">Getting Started</li>
+            <li><a href="#" data-page="installation" class="nav-link">Installation</a></li>
+            <li><a href="#" data-page="quickstart" class="nav-link">Quick Start</a></li>
+            <li><a href="#" data-page="usage" class="nav-link">Usage</a></li>
+            <li class="nav-section">Core Concepts</li>
+            <li><a href="#" data-page="concepts" class="nav-link">Concepts</a></li>
+            <li><a href="#" data-page="component-design" class="nav-link">Component Design</a></li>
+            <li class="nav-section">Examples</li>
+            <li><a href="#" data-page="basic" class="nav-link">Basic Examples</a></li>
+            <li><a href="#" data-page="advanced" class="nav-link">Advanced Examples</a></li>
+            <li><a href="#" data-page="cookbook" class="nav-link">Cookbook</a></li>
+            <li><a href="#" data-page="reward_cookbook" class="nav-link">Environment Recipes</a></li>
+            <li class="nav-section">Integration</li>
+            <li><a href="#" data-page="integration" class="nav-link">Integration</a></li>
+            <li><a href="#" data-page="with-rllama" class="nav-link">With RLlama</a></li>
+            <li><a href="#" data-page="without-rllama" class="nav-link">Without RLlama</a></li>
+            <li class="nav-section">Reference</li>
+            <li><a href="#" data-page="optimization_guide" class="nav-link">Optimization Guide</a></li>
+            <li><a href="#" data-page="overview" class="nav-link">API Reference</a></li>
+            <li><a href="#" data-page="why-rllama" class="nav-link">Why RLlama</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <!-- Homepage -->
+        <div class="page active" id="home">
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h1 class="hero-title">
+                        rewards are a <span class="crossed-out">black box</span>
+                    </h1>
+                    <h2 class="hero-subtitle">rllama is here to solve</h2>
+                    <p class="hero-description">
+                        A Python library for designing, composing, and tuning reward functions in RL. 
+                        Mix components, auto-search weights, and visualize term contributions.
+                    </p>
+                    <div class="hero-features">
+                        <div class="feature-grid">
+                            <div class="feature-item">
+                                <div class="feature-icon">🧩</div>
+                                <h3>Modular Components</h3>
+                                <p>Mix and match reward functions</p>
+                            </div>
+                            <div class="feature-item">
+                                <div class="feature-icon">🎛️</div>
+                                <h3>Auto Optimization</h3>
+                                <p>Bayesian weight tuning</p>
+                            </div>
+                            <div class="feature-item">
+                                <div class="feature-icon">📊</div>
+                                <h3>Visualization</h3>
+                                <p>Track reward contributions</p>
+                            </div>
+                            <div class="feature-item">
+                                <div class="feature-icon">🚀</div>
+                                <h3>RL Integration</h3>
+                                <p>Works with popular frameworks</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hero-buttons">
+                        <button class="btn btn-primary" onclick="showPage('installation')">GET STARTED</button>
+                        <button class="btn btn-secondary" onclick="showPage('concepts')">LEARN MORE</button>
+                    </div>
+                </div>
+                <div class="hero-animation">
+                    <canvas id="rewardCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic content will be inserted here -->
+        <div class="page" id="content-page">
+            <div class="content-wrapper">
+                <div id="page-content"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
