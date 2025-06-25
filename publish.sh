@@ -2,7 +2,6 @@
 
 # Build and publish RLlama to PyPI
 
-# Clean up previous builds
 rm -rf dist/
 rm -rf build/
 rm -rf *.egg-info

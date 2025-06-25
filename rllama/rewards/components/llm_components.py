@@ -1,792 +1,792 @@
+#!/usr/bin/env python3
+"""
+LLM-specific reward components for language model training and evaluation.
+These components implement sophisticated reward functions for text generation tasks.
+"""
+
 import numpy as np
-from typing import Dict, List, Any, Optional, Union, Tuple # Added Tuple here
-from .base import BaseReward # Ensure BaseReward is imported
+import math
+import re
+from typing import Dict, Any, Optional, Union, List, Tuple
+from collections import defaultdict, Counter
+import warnings
 
-class FactualityReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, threshold: float = 0.7, hallucination_penalty: float = 2.0): # Add name, call super
-        super().__init__(name, weight)
-        self.threshold = threshold
-        self.hallucination_penalty = hallucination_penalty
+from ..base import BaseReward
+from ..registry import register_reward_component
+
+@register_reward_component
+class PerplexityReward(BaseReward):
+    """
+    Reward component based on perplexity of generated text.
+    Lower perplexity indicates more fluent and coherent text.
+    """
     
-    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
-        factuality_score = context.get('factuality_score', 0.5)
-        hallucination_score = context.get('hallucination_score', 0.0)
+    def __init__(self,
+                 text_key: str = "response",
+                 model_key: str = "language_model",
+                 target_perplexity: float = 50.0,
+                 scaling_factor: float = -0.01,
+                 normalize: bool = True,
+                 use_log_perplexity: bool = True,
+                 **kwargs):
+        """
+        Initialize perplexity reward component.
         
-        # Penalize hallucinations
-        hallucination_penalty_val = -self.hallucination_penalty * hallucination_score
+        Args:
+            text_key: Key in context containing text to evaluate
+            model_key: Key in context containing language model for perplexity calculation
+            target_perplexity: Target perplexity value (lower is better)
+            scaling_factor: Factor to scale perplexity into reward
+            normalize: Whether to normalize perplexity
+            use_log_perplexity: Whether to use log perplexity for more stable rewards
+        """
+        super().__init__(**kwargs)
+        self.text_key = text_key
+        self.model_key = model_key
+        self.target_perplexity = target_perplexity
+        self.scaling_factor = scaling_factor
+        self.normalize = normalize
+        self.use_log_perplexity = use_log_perplexity
         
-        # Reward factuality above threshold, penalize below
-        if factuality_score < self.threshold:
-            factuality_component = -self.weight * (self.threshold - factuality_score) * 10
+        # Track perplexity statistics for normalization
+        self.perplexity_history = []
+        self.running_mean = target_perplexity
+        self.running_std = 10.0
+        
+    def calculate(self, context: Dict[str, Any]) -> float:
+        """Calculate perplexity-based reward."""
+        text = context.get(self.text_key, "")
+        if not text or not isinstance(text, str):
+            return 0.0
+            
+        # Calculate perplexity
+        perplexity = self._calculate_perplexity(text, context)
+        
+        if perplexity is None or perplexity <= 0:
+            return 0.0
+            
+        # Update statistics
+        self._update_statistics(perplexity)
+        
+        # Apply log transformation if requested
+        if self.use_log_perplexity:
+            perplexity = math.log(perplexity + 1e-8)
+            target = math.log(self.target_perplexity + 1e-8)
         else:
-            factuality_component = self.weight * (factuality_score - self.threshold)
-        
-        return factuality_component + hallucination_penalty_val
-
-    def reset(self): # Add reset method
-        pass
-
-class CoherenceReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, min_score: float = 0.0, max_score: float = 1.0, **kwargs): # Add name, call super
-        super().__init__(name, weight)
-        self.min_score = min_score
-        self.max_score = max_score
-        # Ignore any extra kwargs to make the component more flexible
-    
-    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
-        coherence_score = context.get('coherence_score', 0.5)
-        # Ensure division by zero is handled if min_score can equal max_score
-        if (self.max_score - self.min_score) == 0:
-            normalized_score = 0.5 if coherence_score == self.min_score else (1.0 if coherence_score > self.min_score else 0.0)
-        else:
-            normalized_score = (coherence_score - self.min_score) / (self.max_score - self.min_score)
-        
-        normalized_score = max(0.0, min(1.0, normalized_score))  # Clamp to [0, 1]
-        
-        return self.weight * normalized_score
-
-    def reset(self): # Add reset method
-        pass
-
-class RelevanceReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, query_importance: float = 0.5): # Add name, call super
-        super().__init__(name, weight)
-        self.query_importance = query_importance
-    
-    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
-        relevance_score = context.get('relevance_score', 0.5)
-        query_match = context.get('query_match', 0.5)
-        
-        combined_score = (1 - self.query_importance) * relevance_score + self.query_importance * query_match
-        return self.weight * combined_score
-
-    def reset(self): # Add reset method
-        pass
-
-class HelpfulnessReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, min_threshold: float = 0.3): # Add name, call super
-        super().__init__(name, weight)
-        self.min_threshold = min_threshold
-    
-    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
-        helpfulness_score = context.get('helpfulness_score', 0.5)
-        
-        # Strong penalty for unhelpful responses
-        if helpfulness_score < self.min_threshold:
-            # Avoid division by zero if min_threshold can be 0
-            penalty_factor = 0.0
-            if self.min_threshold > 0: # Ensure min_threshold is not zero before division
-                penalty_factor = (1.0 - helpfulness_score / self.min_threshold)
-            return -self.weight * penalty_factor * 5 # Apply penalty factor
-        
-        return self.weight * helpfulness_score
-
-    def reset(self): # Add reset method
-        pass
-
-class HarmlessnessReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, toxicity_penalty: float = 3.0): # Add name, call super
-        super().__init__(name, weight)
-        self.toxicity_penalty_factor = toxicity_penalty # Use a more descriptive name
-    
-    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
-        toxicity_score = context.get('toxicity_score', 0.0)
-        # Assuming harmlessness_score is inversely related or a separate metric
-        # If it's just 1 - toxicity, then it's redundant with toxicity_score
-        harmlessness_score = context.get('harmlessness_score', 1.0 - toxicity_score) 
-        
-        current_toxicity_penalty = 0.0 # Initialize penalty
-        # Exponential penalty for toxicity
-        if toxicity_score > 0.1: # Apply penalty only if toxicity exceeds a small threshold
-            # The np.exp can grow very fast. Consider scaling or capping.
-            # Example: np.exp(toxicity_score * 2) might be too aggressive.
-            # Let's use a simpler scaling for now or ensure toxicity_score is well-bounded (e.g., 0-1)
-            current_toxicity_penalty = -self.toxicity_penalty_factor * (np.exp(min(toxicity_score, 1.0) * 2) - 1) # Cap toxicity_score for exp
-        
-        # The reward should be based on harmlessness, then apply toxicity penalty
-        # If harmlessness_score is just 1-toxicity, then:
-        # reward = self.weight * (1 - toxicity_score) + current_toxicity_penalty
-        # If harmlessness_score is an independent measure:
-        reward = self.weight * harmlessness_score + current_toxicity_penalty
+            target = self.target_perplexity
+            
+        # Normalize if requested
+        if self.normalize and len(self.perplexity_history) > 10:
+            perplexity = (perplexity - self.running_mean) / (self.running_std + 1e-8)
+            target = (target - self.running_mean) / (self.running_std + 1e-8)
+            
+        # Calculate reward (negative distance from target)
+        reward = self.scaling_factor * abs(perplexity - target)
         
         return reward
-
-    def reset(self): # Add reset method
-        pass
-
-class ConcisionReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, target_length: int = 200, tolerance: int = 100, **kwargs): # Add name, call super
-        super().__init__(name, weight)
-        self.target_length = target_length
-        self.tolerance = tolerance
-        # Ignore any extra kwargs
-    
-    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
-        # Assuming 'response_text' is in context for length calculation
-        response_text = context.get('response_text', '')
-        # You might want to count words or characters based on your needs
-        # response_length = len(response_text.split()) # Word count
-        response_length = context.get('response_length', len(response_text)) # Or use pre-calculated length if available
-
-        # Calculate distance from target length
-        distance = abs(response_length - self.target_length)
         
-        # No penalty within tolerance
-        if distance <= self.tolerance:
-            return 0.0 # Or a small positive reward for being within tolerance
+    def _calculate_perplexity(self, text: str, context: Dict[str, Any]) -> Optional[float]:
+        """Calculate perplexity of text."""
+        # Check if language model is provided in context
+        model = context.get(self.model_key)
         
-        # Quadratic penalty for being too far from target
-        # Ensure target_length is not zero to avoid division by zero
-        if self.target_length == 0:
-            penalty = -self.weight # Max penalty if target is 0 and not met
+        if model is not None:
+            # Use provided model to calculate perplexity
+            try:
+                return self._model_perplexity(text, model)
+            except Exception:
+                pass
+                
+        # Fallback to simple n-gram based perplexity estimation
+        return self._ngram_perplexity(text)
+        
+    def _model_perplexity(self, text: str, model) -> float:
+        """Calculate perplexity using a language model."""
+        # This is a placeholder - in practice, you'd use the actual model
+        # For example, with transformers:
+        # import torch
+        # from transformers import GPT2LMHeadModel, GPT2Tokenizer
+        # 
+        # tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+        # model = GPT2LMHeadModel.from_pretrained('gpt2')
+        # 
+        # inputs = tokenizer(text, return_tensors='pt')
+        # with torch.no_grad():
+        #     outputs = model(**inputs, labels=inputs['input_ids'])
+        #     loss = outputs.loss
+        #     perplexity = torch.exp(loss).item()
+        
+        # Simplified implementation
+        if hasattr(model, 'calculate_perplexity'):
+            return model.calculate_perplexity(text)
         else:
-            penalty = -self.weight * ((distance - self.tolerance) / self.target_length) ** 2
+            # Fallback to n-gram estimation
+            return self._ngram_perplexity(text)
+            
+    def _ngram_perplexity(self, text: str, n: int = 3) -> float:
+        """Estimate perplexity using n-gram statistics."""
+        words = text.lower().split()
         
-        return penalty
+        if len(words) < n:
+            return 100.0  # High perplexity for very short text
+            
+        # Create n-grams
+        ngrams = []
+        context_counts = defaultdict(int)
+        ngram_counts = defaultdict(int)
+        
+        for i in range(len(words) - n + 1):
+            ngram = tuple(words[i:i+n])
+            context = ngram[:-1]
+            
+            ngrams.append(ngram)
+            ngram_counts[ngram] += 1
+            context_counts[context] += 1
+            
+        # Calculate log probability
+        log_prob = 0.0
+        for ngram in ngrams:
+            context = ngram[:-1]
+            
+            # Smoothed probability (add-1 smoothing)
+            prob = (ngram_counts[ngram] + 1) / (context_counts[context] + len(set(words)))
+            log_prob += math.log(prob)
+            
+        # Calculate perplexity
+        avg_log_prob = log_prob / len(ngrams)
+        perplexity = math.exp(-avg_log_prob)
+        
+        return perplexity
+        
+    def _update_statistics(self, perplexity: float) -> None:
+        """Update running statistics for normalization."""
+        self.perplexity_history.append(perplexity)
+        
+        # Keep only recent history
+        if len(self.perplexity_history) > 1000:
+            self.perplexity_history = self.perplexity_history[-1000:]
+            
+        # Update running statistics
+        if len(self.perplexity_history) > 1:
+            self.running_mean = np.mean(self.perplexity_history)
+            self.running_std = np.std(self.perplexity_history) + 1e-8
 
-    def reset(self): # Add reset method
-        pass
-
-class DiversityReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, repetition_penalty: float = 1.5, **kwargs): # Add name, call super
-        super().__init__(name, weight)
-        self.repetition_penalty_factor = repetition_penalty
-        # Ignore any extra kwargs
+@register_reward_component
+class SemanticSimilarityReward(BaseReward):
+    """
+    Reward component based on semantic similarity between query and response.
+    Uses various similarity metrics including embedding-based approaches.
+    """
     
-    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
-        vocabulary_diversity = context.get('vocabulary_diversity', 0.5) # e.g., unique words / total words
-        repetition_score = context.get('repetition_score', 0.0) # e.g., based on n-gram repetition
+    def __init__(self,
+                 query_key: str = "query",
+                 response_key: str = "response",
+                 similarity_metric: str = "cosine",
+                 embedding_model_key: str = "embedding_model",
+                 target_similarity: float = 0.7,
+                 scaling_factor: float = 1.0,
+                 **kwargs):
+        """
+        Initialize semantic similarity reward component.
         
-        diversity_reward_val = self.weight * vocabulary_diversity
-        repetition_penalty_val = -self.repetition_penalty_factor * repetition_score
+        Args:
+            query_key: Key in context containing query/prompt
+            response_key: Key in context containing response
+            similarity_metric: Similarity metric ("cosine", "jaccard", "bleu", "rouge")
+            embedding_model_key: Key in context containing embedding model
+            target_similarity: Target similarity score
+            scaling_factor: Factor to scale similarity into reward
+        """
+        super().__init__(**kwargs)
+        self.query_key = query_key
+        self.response_key = response_key
+        self.similarity_metric = similarity_metric
+        self.embedding_model_key = embedding_model_key
+        self.target_similarity = target_similarity
+        self.scaling_factor = scaling_factor
         
-        return diversity_reward_val + repetition_penalty_val
+    def calculate(self, context: Dict[str, Any]) -> float:
+        """Calculate semantic similarity reward."""
+        query = context.get(self.query_key, "")
+        response = context.get(self.response_key, "")
+        
+        if not query or not response:
+            return 0.0
+            
+        # Calculate similarity based on metric
+        if self.similarity_metric == "cosine":
+            similarity = self._cosine_similarity(query, response, context)
+        elif self.similarity_metric == "jaccard":
+            similarity = self._jaccard_similarity(query, response)
+        elif self.similarity_metric == "bleu":
+            similarity = self._bleu_similarity(query, response)
+        elif self.similarity_metric == "rouge":
+            similarity = self._rouge_similarity(query, response)
+        else:
+            similarity = self._cosine_similarity(query, response, context)
+            
+        # Scale similarity to reward
+        reward = self.scaling_factor * similarity
+        
+        return reward
+        
+    def _cosine_similarity(self, query: str, response: str, context: Dict[str, Any]) -> float:
+        """Calculate cosine similarity using embeddings."""
+        embedding_model = context.get(self.embedding_model_key)
+        
+        if embedding_model is not None:
+            try:
+                # Use provided embedding model
+                query_embedding = self._get_embedding(query, embedding_model)
+                response_embedding = self._get_embedding(response, embedding_model)
+                
+                if query_embedding is not None and response_embedding is not None:
+                    return self._cosine_sim_vectors(query_embedding, response_embedding)
+            except Exception:
+                pass
+                
+        # Fallback to TF-IDF based similarity
+        return self._tfidf_cosine_similarity(query, response)
+        
+    def _get_embedding(self, text: str, model) -> Optional[np.ndarray]:
+        """Get embedding for text using provided model."""
+        if hasattr(model, 'encode'):
+            return model.encode(text)
+        elif hasattr(model, 'get_embedding'):
+            return model.get_embedding(text)
+        else:
+            return None
+            
+    def _cosine_sim_vectors(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
+        """Calculate cosine similarity between two vectors."""
+        dot_product = np.dot(vec1, vec2)
+        norm1 = np.linalg.norm(vec1)
+        norm2 = np.linalg.norm(vec2)
+        
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+            
+        return dot_product / (norm1 * norm2)
+        
+    def _tfidf_cosine_similarity(self, text1: str, text2: str) -> float:
+        """Calculate TF-IDF based cosine similarity."""
+        # Tokenize
+        words1 = text1.lower().split()
+        words2 = text2.lower().split()
+        
+        # Get vocabulary
+        vocab = set(words1 + words2)
+        
+        if not vocab:
+            return 0.0
+            
+        # Calculate TF-IDF vectors
+        vec1 = self._tfidf_vector(words1, vocab)
+        vec2 = self._tfidf_vector(words2, vocab)
+        
+        return self._cosine_sim_vectors(vec1, vec2)
+        
+    def _tfidf_vector(self, words: List[str], vocab: set) -> np.ndarray:
+        """Calculate TF-IDF vector for words."""
+        word_counts = Counter(words)
+        total_words = len(words)
+        
+        vector = []
+        for word in sorted(vocab):
+            tf = word_counts[word] / total_words if total_words > 0 else 0
+            # Simplified IDF (assuming single document)
+            idf = 1.0
+            vector.append(tf * idf)
+            
+        return np.array(vector)
+        
+    def _jaccard_similarity(self, text1: str, text2: str) -> float:
+        """Calculate Jaccard similarity."""
+        words1 = set(text1.lower().split())
+        words2 = set(text2.lower().split())
+        
+        intersection = words1.intersection(words2)
+        union = words1.union(words2)
+        
+        if not union:
+            return 0.0
+            
+        return len(intersection) / len(union)
+        
+    def _bleu_similarity(self, reference: str, candidate: str) -> float:
+        """Calculate simplified BLEU score."""
+        ref_words = reference.lower().split()
+        cand_words = candidate.lower().split()
+        
+        if not cand_words:
+            return 0.0
+            
+        # Calculate 1-gram precision
+        ref_counts = Counter(ref_words)
+        cand_counts = Counter(cand_words)
+        
+        matches = 0
+        for word, count in cand_counts.items():
+            matches += min(count, ref_counts.get(word, 0))
+            
+        precision = matches / len(cand_words)
+        
+        # Brevity penalty
+        bp = min(1.0, len(cand_words) / max(1, len(ref_words)))
+        
+        return bp * precision
+        
+    def _rouge_similarity(self, reference: str, candidate: str) -> float:
+        """Calculate simplified ROUGE-1 score."""
+        ref_words = set(reference.lower().split())
+        cand_words = set(candidate.lower().split())
+        
+        if not ref_words:
+            return 0.0
+            
+        overlap = ref_words.intersection(cand_words)
+        return len(overlap) / len(ref_words)
 
-    def reset(self): # Add reset method
-        pass
-
-class GroundingReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, citation_bonus: float = 0.2, min_citations: int = 0): # Add name, call super
-        super().__init__(name, weight)
-        self.citation_bonus_factor = citation_bonus # Use a more descriptive name
-        self.min_citations_threshold = min_citations # Use a more descriptive name
+@register_reward_component
+class ToxicityReward(BaseReward):
+    """
+    Reward component that penalizes toxic or harmful content.
+    Uses various toxicity detection methods.
+    """
     
-    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
-        grounding_score = context.get('grounding_score', 0.5) # e.g., semantic similarity to source documents
-        citation_count = context.get('citation_count', 0)
+    def __init__(self,
+                 text_key: str = "response",
+                 toxicity_model_key: str = "toxicity_model",
+                 penalty_strength: float = -5.0,
+                 toxicity_threshold: float = 0.5,
+                 use_keyword_filter: bool = True,
+                 **kwargs):
+        """
+        Initialize toxicity reward component.
         
-        # Base reward for grounding
-        base_reward_val = self.weight * grounding_score
+        Args:
+            text_key: Key in context containing text to evaluate
+            toxicity_model_key: Key in context containing toxicity detection model
+            penalty_strength: Penalty for toxic content (should be negative)
+            toxicity_threshold: Threshold for toxicity detection
+            use_keyword_filter: Whether to use keyword-based filtering as fallback
+        """
+        super().__init__(**kwargs)
+        self.text_key = text_key
+        self.toxicity_model_key = toxicity_model_key
+        self.penalty_strength = penalty_strength
+        self.toxicity_threshold = toxicity_threshold
+        self.use_keyword_filter = use_keyword_filter
         
-        # Bonus for citations above minimum
-        citation_bonus_val = self.citation_bonus_factor * max(0, citation_count - self.min_citations_threshold)
+        # Toxic keywords for fallback detection
+        self.toxic_keywords = [
+            "hate", "kill", "murder", "violence", "attack", "harm", "hurt",
+            "racist", "sexist", "discrimination", "offensive", "insult",
+            "threat", "abuse", "harass", "bully", "toxic", "poison"
+        ]
         
-        return base_reward_val + citation_bonus_val
+    def calculate(self, context: Dict[str, Any]) -> float:
+        """Calculate toxicity-based reward (penalty)."""
+        text = context.get(self.text_key, "")
+        if not text or not isinstance(text, str):
+            return 0.0
+            
+        # Calculate toxicity score
+        toxicity_score = self._calculate_toxicity(text, context)
+        
+        # Apply penalty if above threshold
+        if toxicity_score > self.toxicity_threshold:
+            penalty = self.penalty_strength * (toxicity_score - self.toxicity_threshold)
+            return penalty
+        else:
+            return 0.0  # No penalty for non-toxic content
+            
+    def _calculate_toxicity(self, text: str, context: Dict[str, Any]) -> float:
+        """Calculate toxicity score for text."""
+        # Try to use provided toxicity model
+        toxicity_model = context.get(self.toxicity_model_key)
+        
+        if toxicity_model is not None:
+            try:
+                return self._model_toxicity(text, toxicity_model)
+            except Exception:
+                pass
+                
+        # Fallback to keyword-based detection
+        if self.use_keyword_filter:
+            return self._keyword_toxicity(text)
+        else:
+            return 0.0
+            
+    def _model_toxicity(self, text: str, model) -> float:
+        """Calculate toxicity using a toxicity detection model."""
+        if hasattr(model, 'predict_toxicity'):
+            return model.predict_toxicity(text)
+        elif hasattr(model, 'predict'):
+            result = model.predict(text)
+            if isinstance(result, dict) and 'toxicity' in result:
+                return result['toxicity']
+            elif isinstance(result, (int, float)):
+                return float(result)
+        
+        return 0.0
+        
+    def _keyword_toxicity(self, text: str) -> float:
+        """Calculate toxicity based on keyword presence."""
+        text_lower = text.lower()
+        
+        # Count toxic keywords
+        toxic_count = 0
+        for keyword in self.toxic_keywords:
+            toxic_count += text_lower.count(keyword)
+            
+        # Calculate toxicity score based on keyword density
+        word_count = len(text.split())
+        if word_count == 0:
+            return 0.0
+            
+        toxicity_density = toxic_count / word_count
+        
+        # Scale to 0-1 range
+        toxicity_score = min(1.0, toxicity_density * 5.0)  # Scale factor
+        
+        return toxicity_score
 
-    def reset(self): # Add reset method
-        pass
-
-class AlignmentReward(BaseReward): # Inherit from BaseReward
-    def __init__(self, name: str, weight: float = 1.0, # Add name, call super
-                 factuality_importance: float = 0.3,
-                 harmlessness_importance: float = 0.4,
-                 helpfulness_importance: float = 0.3):
-        super().__init__(name, weight)
-        self.factuality_importance = factuality_importance
-        self.harmlessness_importance = harmlessness_importance
-        self.helpfulness_importance = helpfulness_importance
+@register_reward_component
+class FactualityReward(BaseReward):
+    """
+    Reward component that encourages factually accurate content.
+    Uses various fact-checking approaches.
+    """
     
-    def calculate(self, context: Dict[str, Any]) -> float: # Changed 'state' to 'context', removed 'action'
-        # These scores should ideally be in [0, 1] or a consistent range
-        factuality_score = context.get('factuality_score', 0.5)
-        # Harmlessness might be 1 - toxicity_score, or an independent measure
-        harmlessness_score = context.get('harmlessness_score', 1.0 - context.get('toxicity_score', 0.0))
-        helpfulness_score = context.get('helpfulness_score', 0.5)
+    def __init__(self,
+                 text_key: str = "response",
+                 query_key: str = "query",
+                 fact_checker_key: str = "fact_checker",
+                 knowledge_base_key: str = "knowledge_base",
+                 factuality_weight: float = 1.0,
+                 uncertainty_penalty: float = 0.1,
+                 **kwargs):
+        """
+        Initialize factuality reward component.
         
-        # Combine the three pillars of alignment
-        # Ensure importance factors sum to 1 if they are meant to be weights in a convex combination
-        # total_importance = self.factuality_importance + self.harmlessness_importance + self.helpfulness_importance
-        # if total_importance == 0: alignment_score = 0.0
-        # else:
-        #     alignment_score = (
-        #         (self.factuality_importance / total_importance) * factuality_score +
-        #         (self.harmlessness_importance / total_importance) * harmlessness_score +
-        #         (self.helpfulness_importance / total_importance) * helpfulness_score
-        #     )
-        # Simpler approach if importances are just scaling factors:
-        alignment_score = (
-            self.factuality_importance * factuality_score +
-            self.harmlessness_importance * harmlessness_score +
-            self.helpfulness_importance * helpfulness_score
+        Args:
+            text_key: Key in context containing text to evaluate
+            query_key: Key in context containing query for context
+            fact_checker_key: Key in context containing fact-checking model
+            knowledge_base_key: Key in context containing knowledge base
+            factuality_weight: Weight for factuality score
+            uncertainty_penalty: Penalty for uncertain/ambiguous statements
+        """
+        super().__init__(**kwargs)
+        self.text_key = text_key
+        self.query_key = query_key
+        self.fact_checker_key = fact_checker_key
+        self.knowledge_base_key = knowledge_base_key
+        self.factuality_weight = factuality_weight
+        self.uncertainty_penalty = uncertainty_penalty
+        
+    def calculate(self, context: Dict[str, Any]) -> float:
+        """Calculate factuality-based reward."""
+        text = context.get(self.text_key, "")
+        query = context.get(self.query_key, "")
+        
+        if not text:
+            return 0.0
+            
+        # Calculate factuality score
+        factuality_score = self._calculate_factuality(text, query, context)
+        
+        # Calculate uncertainty penalty
+        uncertainty_score = self._calculate_uncertainty(text)
+        
+        # Combine scores
+        reward = (self.factuality_weight * factuality_score - 
+                 self.uncertainty_penalty * uncertainty_score)
+        
+        return reward
+        
+    def _calculate_factuality(self, text: str, query: str, context: Dict[str, Any]) -> float:
+        """Calculate factuality score for text."""
+        # Try to use provided fact checker
+        fact_checker = context.get(self.fact_checker_key)
+        
+        if fact_checker is not None:
+            try:
+                return self._model_factuality(text, fact_checker)
+            except Exception:
+                pass
+                
+        # Try to use knowledge base
+        knowledge_base = context.get(self.knowledge_base_key)
+        
+        if knowledge_base is not None:
+            try:
+                return self._knowledge_base_factuality(text, knowledge_base)
+            except Exception:
+                pass
+                
+        # Fallback to heuristic-based factuality
+        return self._heuristic_factuality(text)
+        
+    def _model_factuality(self, text: str, fact_checker) -> float:
+        """Calculate factuality using a fact-checking model."""
+        if hasattr(fact_checker, 'check_facts'):
+            return fact_checker.check_facts(text)
+        elif hasattr(fact_checker, 'predict'):
+            result = fact_checker.predict(text)
+            if isinstance(result, dict) and 'factuality' in result:
+                return result['factuality']
+            elif isinstance(result, (int, float)):
+                return float(result)
+                
+        return 0.5  # Neutral score
+        
+    def _knowledge_base_factuality(self, text: str, knowledge_base) -> float:
+        """Calculate factuality using a knowledge base."""
+        # Extract claims from text
+        claims = self._extract_claims(text)
+        
+        if not claims:
+            return 0.5
+            
+        # Check each claim against knowledge base
+        factual_claims = 0
+        total_claims = len(claims)
+        
+        for claim in claims:
+            if self._verify_claim(claim, knowledge_base):
+                factual_claims += 1
+                
+        return factual_claims / total_claims
+        
+    def _extract_claims(self, text: str) -> List[str]:
+        """Extract factual claims from text."""
+        # Simple sentence splitting
+        sentences = re.split(r'[.!?]+', text)
+        
+        # Filter for sentences that look like factual claims
+        claims = []
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) > 10 and self._looks_like_claim(sentence):
+                claims.append(sentence)
+                
+        return claims
+        
+    def _looks_like_claim(self, sentence: str) -> bool:
+        """Check if sentence looks like a factual claim."""
+        # Simple heuristics
+        factual_indicators = [
+            "is", "are", "was", "were", "has", "have", "had",
+            "will", "would", "can", "could", "should", "must",
+            "according to", "research shows", "studies indicate"
+        ]
+        
+        sentence_lower = sentence.lower()
+        return any(indicator in sentence_lower for indicator in factual_indicators)
+        
+    def _verify_claim(self, claim: str, knowledge_base) -> bool:
+        """Verify a claim against knowledge base."""
+        if hasattr(knowledge_base, 'verify'):
+            return knowledge_base.verify(claim)
+        elif hasattr(knowledge_base, 'search'):
+            results = knowledge_base.search(claim)
+            return len(results) > 0
+        else:
+            return False
+            
+    def _heuristic_factuality(self, text: str) -> float:
+        """Calculate factuality using heuristics."""
+        # Simple heuristics for factuality
+        score = 0.5  # Start with neutral
+        
+        # Penalty for hedging language (indicates uncertainty)
+        hedging_words = ["maybe", "perhaps", "possibly", "might", "could be", "seems"]
+        hedging_count = sum(1 for word in hedging_words if word in text.lower())
+        score -= hedging_count * 0.05
+        
+        # Bonus for specific numbers and dates (indicates precision)
+        numbers = re.findall(r'\d+', text)
+        score += min(0.2, len(numbers) * 0.02)
+        
+        # Bonus for citations or references
+        citation_patterns = [r'\[\d+\]', r'\(\d{4}\)', r'et al\.', r'according to']
+        citations = sum(1 for pattern in citation_patterns 
+                       if re.search(pattern, text))
+        score += min(0.2, citations * 0.05)
+        
+        return max(0.0, min(1.0, score))
+        
+    def _calculate_uncertainty(self, text: str) -> float:
+        """Calculate uncertainty score for text."""
+        uncertainty_words = [
+            "uncertain", "unclear", "ambiguous", "confusing", "vague",
+            "maybe", "perhaps", "possibly", "might", "could be",
+            "not sure", "don't know", "unclear", "uncertain"
+        ]
+        
+        text_lower = text.lower()
+        uncertainty_count = sum(1 for word in uncertainty_words 
+                              if word in text_lower)
+        
+        word_count = len(text.split())
+        if word_count == 0:
+            return 0.0
+            
+        uncertainty_score = uncertainty_count / word_count
+        return min(1.0, uncertainty_score * 5.0)  # Scale factor
+
+@register_reward_component
+class CreativityReward(BaseReward):
+    """
+    Reward component that encourages creative and novel content.
+    Uses various creativity metrics.
+    """
+    
+    def __init__(self,
+                 text_key: str = "response",
+                 novelty_weight: float = 0.4,
+                 diversity_weight: float = 0.3,
+                 originality_weight: float = 0.3,
+                 reference_corpus_key: str = "reference_corpus",
+                 **kwargs):
+        """
+        Initialize creativity reward component.
+        
+        Args:
+            text_key: Key in context containing text to evaluate
+            novelty_weight: Weight for novelty score
+            diversity_weight: Weight for diversity score
+            originality_weight: Weight for originality score
+            reference_corpus_key: Key in context containing reference corpus
+        """
+        super().__init__(**kwargs)
+        self.text_key = text_key
+        self.novelty_weight = novelty_weight
+        self.diversity_weight = diversity_weight
+        self.originality_weight = originality_weight
+        self.reference_corpus_key = reference_corpus_key
+        
+        # Track generated text for novelty comparison
+        self.generated_texts = []
+        
+    def calculate(self, context: Dict[str, Any]) -> float:
+        """Calculate creativity-based reward."""
+        text = context.get(self.text_key, "")
+        if not text:
+            return 0.0
+            
+        # Calculate different creativity metrics
+        novelty_score = self._calculate_novelty(text, context)
+        diversity_score = self._calculate_diversity(text)
+        originality_score = self._calculate_originality(text, context)
+        
+        # Combine scores
+        creativity_score = (
+            self.novelty_weight * novelty_score +
+            self.diversity_weight * diversity_score +
+            self.originality_weight * originality_score
         )
         
-        return self.weight * alignment_score
-
-    def reset(self): # Add reset method
-        pass
-
-import re # For heuristic-based checks
-from .base import BaseReward # Already imported above
-
-class SelfConsistencyReward(BaseReward): # Changed BaseRewardComponent to BaseReward
-    """
-    Rewards the LLM for maintaining self-consistency within its response
-    and potentially across a dialogue history.
-    It can use a user-provided LLM judge or fallback to heuristics.
-    """
-    def __init__(self, 
-                 weight: float = 1.0, 
-                 judge_llm_client: Optional[Any] = None, 
-                 check_history: bool = False,
-                 judge_prompt_template: Optional[str] = None,
-                 heuristic_penalty: float = 1.0,
-                 judge_positive_keywords: List[str] = ["yes", "consistent", "coherent"],
-                 judge_negative_keywords: List[str] = ["no", "inconsistent", "contradictory", "contradicts"]):
-        """
-        Initializes the SelfConsistencyReward component.
-
-        Args:
-            weight (float): The weight of this reward component.
-            judge_llm_client (Optional[Any]): An optional client object for an LLM judge.
-                Expected to have a `generate(prompt: str, **kwargs) -> str` method.
-            check_history (bool): If True, checks consistency against dialogue history.
-            judge_prompt_template (Optional[str]): A custom prompt template for the LLM judge.
-                Must contain a placeholder {text_to_evaluate}.
-            heuristic_penalty (float): Penalty applied for each heuristic contradiction found.
-            judge_positive_keywords (List[str]): Keywords in judge's response indicating consistency.
-            judge_negative_keywords (List[str]): Keywords in judge's response indicating inconsistency.
-        """
-        super().__init__(weight)
-        self.judge_llm_client = judge_llm_client
-        self.check_history = check_history
-        self.heuristic_penalty = heuristic_penalty
-        self.judge_positive_keywords = [kw.lower() for kw in judge_positive_keywords]
-        self.judge_negative_keywords = [kw.lower() for kw in judge_negative_keywords]
-
-        if judge_prompt_template:
-            if "{text_to_evaluate}" not in judge_prompt_template:
-                raise ValueError("judge_prompt_template must contain '{text_to_evaluate}' placeholder.")
-            self.judge_prompt_template = judge_prompt_template
-        else:
-            self.judge_prompt_template = (
-                "Please evaluate the following text for internal self-consistency. "
-                "Consider if there are any statements that contradict each other, "
-                "either directly or implicitly. Respond with 'Consistent' or 'Inconsistent', "
-                "followed by a brief explanation.\n\n"
-                "Text to evaluate:\n{text_to_evaluate}\n\n"
-                "Evaluation:"
-            )
-
-    def _get_text_to_evaluate(self, generated_text: str, context: Dict[str, Any]) -> str:
-        text_to_evaluate = generated_text
-        if self.check_history and 'dialogue_history' in context and context['dialogue_history']:
-            history_parts = []
-            for turn in context['dialogue_history']:
-                # Assuming turn is a dict with 'role' and 'content'
-                if isinstance(turn, dict) and 'content' in turn:
-                    history_parts.append(f"{turn.get('role', 'user')}: {turn['content']}")
-            if history_parts:
-                history_str = "\n".join(history_parts)
-                text_to_evaluate = f"Previous conversation:\n{history_str}\n\nCurrent response to evaluate:\n{generated_text}"
-        return text_to_evaluate
-
-    def _parse_judge_response(self, judge_response: str) -> float:
-        """
-        Parses the judge's textual response into a numerical score.
-        Returns 1.0 for consistent, -1.0 for inconsistent, 0.0 for uncertain/unclear.
-        """
-        response_lower = judge_response.lower()
-        
-        has_positive = any(kw in response_lower for kw in self.judge_positive_keywords)
-        has_negative = any(kw in response_lower for kw in self.judge_negative_keywords)
-
-        if has_positive and not has_negative:
-            return 1.0  # Consistent
-        elif has_negative and not has_positive:
-            return -1.0 # Inconsistent
-        elif has_negative and has_positive: # Ambiguous response
-            # Prioritize negative if both appear, could be "Yes, it is inconsistent"
-            # Or, could be "It is not inconsistent" (double negative) - this simple check might fail.
-            # More sophisticated parsing might be needed for complex judge outputs.
-            # For now, if both appear, lean towards inconsistency or neutral.
-            # Let's check for "not inconsistent" type patterns
-            if any(f"not {neg_kw}" in response_lower for neg_kw in self.judge_negative_keywords):
-                 # If "not inconsistent" is found, and no other negative kw, treat as positive
-                 if not any(neg_kw in response_lower for neg_kw in self.judge_negative_keywords if f"not {neg_kw}" not in response_lower):
-                    return 1.0 
-            return -0.5 # Ambiguous, leaning negative
-        
-        # If no clear keywords, consider it uncertain
-        return 0.0  # Uncertain or unable to parse
-
-    def _heuristic_consistency_check(self, text: str) -> float:
-        """
-        Performs basic heuristic checks for self-contradictions.
-        Returns a penalty score (0 or negative).
-        """
-        penalty = 0.0
-        sentences = [s.strip() for s in re.split(r'[.!?]', text) if s.strip()]
-        
-        # Example Heuristic 1: Direct negation (e.g., "X is Y" and "X is not Y")
-        # This is a simplified example. Robust NLP would be needed for general cases.
-        # Looking for patterns like "A is B" and "A is not B" or "A is B. A is not B."
-        # This requires more sophisticated NLP to do robustly.
-        # For a simple illustration:
-        statements = {} # Store positive statements to check against negations
-
-        for sentence in sentences:
-            # Simple pattern: "entity is attribute" vs "entity is not attribute"
-            match_positive = re.match(r"(\w+(?:\s\w+)*)\s+is\s+([\w\s]+)", sentence, re.IGNORECASE)
-            match_negative = re.match(r"(\w+(?:\s\w+)*)\s+is\s+not\s+([\w\s]+)", sentence, re.IGNORECASE)
-
-            if match_positive:
-                entity, attribute = match_positive.groups()
-                entity = entity.lower().strip()
-                attribute = attribute.lower().strip()
-                if statements.get(entity) == f"not {attribute}":
-                    penalty -= self.heuristic_penalty
-                statements[entity] = attribute
+        # Store text for future novelty comparisons
+        self.generated_texts.append(text)
+        if len(self.generated_texts) > 1000:
+            self.generated_texts = self.generated_texts[-1000:]
             
-            elif match_negative:
-                entity, attribute = match_negative.groups()
-                entity = entity.lower().strip()
-                attribute = attribute.lower().strip() # attribute here is what it's NOT
-                if statements.get(entity) == attribute: # attribute here is the positive form
-                    penalty -= self.heuristic_penalty
-                statements[entity] = f"not {attribute}"
+        return creativity_score
         
-        # Example Heuristic 2: Contradictory claims about quantities (very simplified)
-        # "There are 5 apples" and "There are 3 apples"
-        quantity_claims = {}
-        for sentence in sentences:
-            match_quantity = re.search(r"there (?:are|is|were|was)\s+(\d+)\s+([\w\s]+)", sentence, re.IGNORECASE)
-            if match_quantity:
-                number, item = match_quantity.groups()
-                item = item.lower().strip().rstrip('s') # normalize item
-                if item in quantity_claims and quantity_claims[item] != number:
-                    penalty -= self.heuristic_penalty
-                quantity_claims[item] = number
-                
-        return penalty
-
-    def calculate_reward(self, prompt: str, generated_text: str, context: Dict[str, Any]) -> float:
-        """
-        Calculates the reward based on the self-consistency of the generated_text.
-
-        Args:
-            prompt (str): The input prompt to the LLM. (Unused in this component directly)
-            generated_text (str): The text generated by the LLM.
-            context (dict): A dictionary containing additional context, which might include:
-                            'dialogue_history': A list of previous turns.
-                            'llm_judge_kwargs': Additional kwargs for the judge_llm_client.generate().
-
-        Returns:
-            float: The calculated reward.
-        """
-        if not generated_text.strip():
-            return 0.0 # No text to evaluate
-
-        text_to_evaluate = self._get_text_to_evaluate(generated_text, context)
-        
-        score = 0.0
-
-        if self.judge_llm_client:
-            try:
-                judge_prompt = self.judge_prompt_template.format(text_to_evaluate=text_to_evaluate)
-                llm_judge_kwargs = context.get('llm_judge_kwargs', {})
-                judge_response = self.judge_llm_client.generate(judge_prompt, **llm_judge_kwargs)
-                score = self._parse_judge_response(judge_response)
-            except Exception as e:
-                # Log error, and potentially fall back to heuristics or return neutral score
-                print(f"Error using LLM judge for SelfConsistencyReward: {e}")
-                # Fallback to heuristics if judge fails
-                score = self._heuristic_consistency_check(text_to_evaluate)
-        else:
-            # Use heuristic-based checks if no judge LLM
-            score = self._heuristic_consistency_check(text_to_evaluate)
-            # Heuristics return penalties (0 or negative). We might want to scale this
-            # or provide a small positive base if no contradictions are found.
-            # For now, if score is 0 (no penalty), it means no contradictions found by heuristics.
-            # Let's give a small positive reward if no heuristic contradictions are found.
-            if score == 0.0:
-                score = 0.1 # Small positive reward for passing heuristic checks
-        
-        # The calculate method is expected by the RewardComposer
-        # The parameters for calculate should match BaseReward's calculate method
-        # which is `calculate(self, context: Dict[str, Any]) -> float:`
-        # We need to adapt this. For now, let's assume generated_text is in context.
-        # This component's `calculate_reward` method is specific.
-        # We need to align it with the `BaseReward` interface or call it internally.
-
-        # For now, let's assume `generated_text` and `prompt` are passed via `context`
-        # to align with the `BaseReward.calculate` signature.
-        # This might require changes in how TRLRllamaRewardProcessor populates the context.
-        # Alternatively, SelfConsistencyReward's `calculate` method needs to be the entry point.
-
-        # Let's rename `calculate_reward` to `calculate` and adjust its signature
-        # to match BaseReward.
-        # The actual logic will be called from within this `calculate` method.
-        # This is a significant refactor of this specific component.
-        # For now, I will keep calculate_reward and assume it's called internally
-        # or the BaseReward interface is more flexible.
-        # Given the error is NameError, the immediate fix is the inheritance.
-        # The method signature mismatch is a subsequent issue.
-
-        return score * self.weight # This line should be part of calculate_reward
-
-    # This method should be the one defined in BaseReward
-    def calculate(self, context: Dict[str, Any]) -> float:
-        prompt = context.get("prompt", "")
-        generated_text = context.get("response_text", "") # Assuming response_text is the generated_text
-        # Call the original logic
-        return self.calculate_reward(prompt, generated_text, context)
-
-    def reset(self): # Add reset method to conform to BaseReward
-        pass
-
-
-class ChainOfThoughtValidityReward(BaseReward):
-    def __init__(self,
-                 weight: float = 1.0,
-                 judge_llm_client: Optional[Any] = None,
-                 judge_prompt_template: Optional[str] = None,
-                 cot_extraction_regex: Optional[str] = None,
-                 min_cot_steps_heuristic: int = 2,
-                 heuristic_logical_gap_penalty: float = 0.5,
-                 heuristic_irrelevance_penalty: float = 0.5,
-                 heuristic_missing_cot_penalty: float = 1.0,
-                 judge_positive_keywords: List[str] = ["valid", "sound", "logical", "correct steps"],
-                 judge_negative_keywords: List[str] = ["invalid", "unsound", "illogical", "flawed", "missing steps", "incorrect reasoning"]):
-        super().__init__(weight)
-        self.judge_llm_client = judge_llm_client
-        self.cot_extraction_regex = cot_extraction_regex
-        self.min_cot_steps_heuristic = min_cot_steps_heuristic
-        self.heuristic_logical_gap_penalty = heuristic_logical_gap_penalty
-        self.heuristic_irrelevance_penalty = heuristic_irrelevance_penalty
-        self.heuristic_missing_cot_penalty = heuristic_missing_cot_penalty
-        self.judge_positive_keywords = [kw.lower() for kw in judge_positive_keywords]
-        self.judge_negative_keywords = [kw.lower() for kw in judge_negative_keywords]
-
-        if judge_prompt_template:
-            if "{original_prompt}" not in judge_prompt_template or \
-               "{chain_of_thought_and_answer}" not in judge_prompt_template:
-                raise ValueError("judge_prompt_template must contain '{original_prompt}' and '{chain_of_thought_and_answer}' placeholders.")
-            self.judge_prompt_template = judge_prompt_template
-        else:
-            self.judge_prompt_template = (
-                "Original Prompt:\n{original_prompt}\n\n"
-                "Generated Response (including Chain of Thought and Final Answer):\n{chain_of_thought_and_answer}\n\n"
-                "Please evaluate the validity and soundness of the chain of thought presented in the response. "
-                "Consider if the reasoning steps are logical, relevant to the prompt, and correctly lead to the final answer. "
-                "Respond with 'Valid CoT' or 'Invalid CoT', followed by a brief explanation of any flaws or strengths."
-                "\n\nEvaluation:"
-            )
-
-    def _extract_cot_and_answer(self, generated_text: str) -> Tuple[Optional[str], str]:
-        if self.cot_extraction_regex:
-            match = re.search(self.cot_extraction_regex, generated_text, re.DOTALL | re.IGNORECASE)
-            if match:
-                cot = match.group(1).strip()
-                
-                answer_part_after_cot = generated_text[match.end():].strip()
-                if not answer_part_after_cot: # If regex captures up to the end, CoT might include answer
-                    return cot, cot 
-                return cot, answer_part_after_cot 
-        
-        common_cot_markers = [
-            "Let's think step by step:",
-            "Here's my thinking process:",
-            "Step 1:",
-            "Reasoning:"
-        ]
-        text_lower = generated_text.lower()
-        for marker in common_cot_markers:
-            if marker.lower() in text_lower:
-                start_index = text_lower.find(marker.lower())
-                
-                # Try to find a "Final Answer:" or similar marker for the end of CoT
-                final_answer_markers = ["Final Answer:", "The answer is:", "Therefore, the final answer is:"]
-                end_cot_index = -1
-                extracted_answer = ""
-
-                for fa_marker in final_answer_markers:
-                    fa_marker_lower = fa_marker.lower()
-                    if fa_marker_lower in text_lower[start_index:]:
-                        end_cot_index = text_lower.find(fa_marker_lower, start_index)
-                        extracted_answer = generated_text[end_cot_index + len(fa_marker):].strip()
-                        break
-                
-                if end_cot_index != -1:
-                    cot = generated_text[start_index : end_cot_index].strip()
-                    return cot, extracted_answer if extracted_answer else generated_text[end_cot_index:].strip()
-                else: # No clear final answer marker after CoT marker
-                    return generated_text[start_index:].strip(), generated_text # Assume CoT is till end, answer is part of it or whole text
-        
-        return None, generated_text
-
-
-    def _parse_judge_response(self, judge_response: str) -> float:
-        response_lower = judge_response.lower()
-        has_positive = any(kw in response_lower for kw in self.judge_positive_keywords)
-        has_negative = any(kw in response_lower for kw in self.judge_negative_keywords)
-
-        if has_positive and not has_negative:
-            return 1.0
-        elif has_negative and not has_positive:
-            return -1.0
-        elif has_negative and has_positive:
-            if any(f"not {neg_kw}" in response_lower for neg_kw in self.judge_negative_keywords):
-                 if not any(neg_kw in response_lower for neg_kw in self.judge_negative_keywords if f"not {neg_kw}" not in response_lower):
-                    return 1.0
-            return -0.5
-        return 0.0
-
-    def _heuristic_cot_check(self, original_prompt: str, chain_of_thought: Optional[str], final_answer: str) -> float:
-        penalty = 0.0
-
-        if not chain_of_thought:
-            return -self.heuristic_missing_cot_penalty
-
-        cot_steps = [s.strip() for s in chain_of_thought.split('\n') if s.strip() and len(s.split()) > 2]
-        if not cot_steps: # Handles case where CoT is present but effectively empty after splitting
-             cot_steps = [s.strip() for s in re.split(r'\.\s+|\;\s+|implies\s+|therefore\s+', chain_of_thought) if s.strip() and len(s.split()) > 1]
-
-
-        if len(cot_steps) < self.min_cot_steps_heuristic:
-            penalty -= self.heuristic_missing_cot_penalty / 2 
-
-        prompt_keywords = set(re.findall(r'\b\w+\b', original_prompt.lower()))
-
-        if not cot_steps: # If still no steps after alternative splitting
-            return penalty - self.heuristic_irrelevance_penalty # Penalize if CoT is empty or unparseable
-
-        for i, step in enumerate(cot_steps):
-            step_lower = step.lower()
-            step_keywords = set(re.findall(r'\b\w+\b', step_lower))
-
-            if not prompt_keywords.intersection(step_keywords):
-                if i == 0: 
-                    penalty -= self.heuristic_irrelevance_penalty
+    def _calculate_novelty(self, text: str, context: Dict[str, Any]) -> float:
+        """Calculate novelty score compared to previous generations."""
+        if not self.generated_texts:
+            return 1.0  # First generation is novel
             
-            if i > 0:
-                prev_step_keywords = set(re.findall(r'\b\w+\b', cot_steps[i-1].lower()))
-                if not step_keywords.intersection(prev_step_keywords) and \
-                   not step_keywords.intersection(prompt_keywords):
-                    penalty -= self.heuristic_logical_gap_penalty
+        # Calculate similarity to previous texts
+        similarities = []
+        for prev_text in self.generated_texts[-100:]:  # Check last 100
+            similarity = self._text_similarity(text, prev_text)
+            similarities.append(similarity)
+            
+        # Novelty is inverse of maximum similarity
+        max_similarity = max(similarities) if similarities else 0.0
+        novelty = 1.0 - max_similarity
         
-        reasoning_keywords = ["because", "therefore", "hence", "thus", "since", "so", "consequently", "as a result", "implies", "leads to"]
-        has_reasoning_indicator = any(rk in chain_of_thought.lower() for rk in reasoning_keywords)
-        if not has_reasoning_indicator and len(cot_steps) > 1:
-            penalty -= self.heuristic_logical_gap_penalty / 2 
-
-        if final_answer.strip() and chain_of_thought.strip():
-            answer_keywords = set(re.findall(r'\b\w+\b', final_answer.lower()))
-            last_cot_step_keywords = set(re.findall(r'\b\w+\b', cot_steps[-1].lower()))
-            if not answer_keywords.intersection(last_cot_step_keywords) and \
-               not answer_keywords.intersection(prompt_keywords):
-                 penalty -= self.heuristic_logical_gap_penalty
+        return novelty
         
-        return max(penalty, -2.0) # Cap max penalty from heuristics
-
-    def calculate_reward(self, prompt: str, generated_text: str, context: Dict[str, Any]) -> float:
-        if not generated_text.strip():
+    def _calculate_diversity(self, text: str) -> float:
+        """Calculate lexical diversity within the text."""
+        words = text.lower().split()
+        
+        if len(words) < 2:
             return 0.0
-
-        chain_of_thought, final_answer_or_full_text = self._extract_cot_and_answer(generated_text)
-        
-        text_for_judge = generated_text 
-        if chain_of_thought and final_answer_or_full_text != chain_of_thought :
-             text_for_judge = f"Chain of Thought:\n{chain_of_thought}\n\nFinal Answer:\n{final_answer_or_full_text}"
-        elif chain_of_thought: # CoT might contain the answer or is the whole relevant part
-             text_for_judge = chain_of_thought
-
-
-        score = 0.0
-        if self.judge_llm_client:
-            try:
-                judge_api_prompt = self.judge_prompt_template.format(
-                    original_prompt=prompt,
-                    chain_of_thought_and_answer=text_for_judge
-                )
-                llm_judge_kwargs = context.get('llm_judge_kwargs', {})
-                judge_response = self.judge_llm_client.generate(judge_api_prompt, **llm_judge_kwargs)
-                score = self._parse_judge_response(judge_response)
-            except Exception as e:
-                print(f"Error using LLM judge for ChainOfThoughtValidityReward: {e}")
-                score = self._heuristic_cot_check(prompt, chain_of_thought, final_answer_or_full_text)
-        else:
-            score = self._heuristic_cot_check(prompt, chain_of_thought, final_answer_or_full_text)
-            if score == 0.0 and chain_of_thought: 
-                score = 0.1 
-            elif score == 0.0 and not chain_of_thought: # No CoT found, no penalty from heuristic (means it wasn't expected)
-                score = 0.0 # Neutral if CoT not applicable/found and not penalized
-
-        return score * self.weight
-
-class InstructionFollowingComplexityReward(BaseReward):
-    def __init__(self,
-                 weight: float = 1.0,
-                 judge_llm_client: Optional[Any] = None,
-                 judge_prompt_template: Optional[str] = None,
-                 heuristic_violation_penalty: float = 0.75,
-                 heuristic_partial_adherence_bonus: float = 0.2,
-                 judge_positive_keywords: List[str] = ["fully adhered", "followed all instructions", "correctly executed"],
-                 judge_negative_keywords: List[str] = ["failed to follow", "missed instruction", "violated constraint", "incorrect format"]):
-        super().__init__(weight)
-        self.judge_llm_client = judge_llm_client
-        self.heuristic_violation_penalty = heuristic_violation_penalty
-        self.heuristic_partial_adherence_bonus = heuristic_partial_adherence_bonus
-        self.judge_positive_keywords = [kw.lower() for kw in judge_positive_keywords]
-        self.judge_negative_keywords = [kw.lower() for kw in judge_negative_keywords]
-
-        if judge_prompt_template:
-            if "{original_instruction}" not in judge_prompt_template or \
-               "{generated_response}" not in judge_prompt_template:
-                raise ValueError("judge_prompt_template must contain '{original_instruction}' and '{generated_response}' placeholders.")
-            self.judge_prompt_template = judge_prompt_template
-        else:
-            self.judge_prompt_template = (
-                "Original Instruction:\n{original_instruction}\n\n"
-                "Generated Response:\n{generated_response}\n\n"
-                "Please evaluate how well the generated response adheres to all aspects of the original instruction, "
-                "including any explicit or implicit constraints, formatting requirements, and negative constraints (e.g., 'do not mention X'). "
-                "Respond with 'Fully Adhered' or 'Partially Adhered' or 'Failed to Adhere', followed by a brief explanation."
-                "\n\nEvaluation:"
-            )
-
-    def _parse_judge_response(self, judge_response: str) -> float:
-        response_lower = judge_response.lower()
-        
-        is_positive = any(kw in response_lower for kw in self.judge_positive_keywords)
-        is_negative = any(kw in response_lower for kw in self.judge_negative_keywords)
-
-        if "fully adhered" in response_lower or ("adhered" in response_lower and not is_negative): # Prioritize "fully adhered"
-            return 1.0
-        elif "partially adhered" in response_lower and not is_negative:
-            return 0.5
-        elif is_negative: # "failed to adhere" or other negative keywords
-            return -1.0
-        
-        if is_positive and not is_negative : # General positive keyword
-            return 0.7 # Slightly less than fully adhered if not explicit
-        
-        return 0.0
-
-
-    def _heuristic_instruction_check(self, original_instruction: str, generated_response: str) -> float:
-        score = 0.0
-        instruction_lower = original_instruction.lower()
-        response_lower = generated_response.lower()
-        num_constraints_found = 0
-        num_constraints_met = 0
-
-        negative_constraints = re.findall(r"(?:do not|don't|avoid|must not) include ([\w\s]+?)(?:\.|;|$|,|and)", instruction_lower)
-        negative_constraints += re.findall(r"(?:do not|don't|avoid|must not) mention ([\w\s]+?)(?:\.|;|$|,|and)", instruction_lower)
-        for neg_constraint_phrase in negative_constraints:
-            num_constraints_found += 1
-            neg_constraint = neg_constraint_phrase.strip()
-            if neg_constraint and neg_constraint in response_lower:
-                score -= self.heuristic_violation_penalty
-            else:
-                num_constraints_met +=1
-        
-        positive_constraints = re.findall(r"(?:must include|ensure you provide|include|provide|mention) ([\w\s]+?)(?:\.|;|$|,|and)", instruction_lower)
-        for pos_constraint_phrase in positive_constraints:
-            num_constraints_found += 1
-            pos_constraint = pos_constraint_phrase.strip()
-            if pos_constraint and pos_constraint not in response_lower:
-                score -= self.heuristic_violation_penalty
-            elif pos_constraint:
-                num_constraints_met +=1
-
-        format_match = re.search(r"format as (json|xml|a list|bullet points|markdown)", instruction_lower)
-        if format_match:
-            num_constraints_found += 1
-            format_type = format_match.group(1)
-            met_format = False
-            if format_type == "json":
-                if (response_lower.startswith("{") and response_lower.endswith("}")) or \
-                   (response_lower.startswith("[") and response_lower.endswith("]")):
-                    met_format = True
-            elif format_type == "xml":
-                if response_lower.startswith("<") and response_lower.endswith(">") and ">" in response_lower[1:-1]:
-                    met_format = True
-            elif format_type == "a list" or format_type == "bullet points":
-                if re.search(r"^\s*[\*\-\•]\s+", generated_response, re.MULTILINE) or \
-                   re.search(r"^\s*\d+\.\s+", generated_response, re.MULTILINE):
-                    met_format = True
-            elif format_type == "markdown":
-                 if re.search(r"#{1,6}\s|\*+[\w\s]+\*\*|__[\w\s]+__|`[\w\s]+`|\[.*\]\(.*\)|^\s*[\*\-\+]\s+", generated_response):
-                    met_format = True
             
-            if met_format:
-                num_constraints_met +=1
-            else:
-                score -= self.heuristic_violation_penalty
+        # Type-token ratio (unique words / total words)
+        unique_words = len(set(words))
+        total_words = len(words)
         
-        length_constraints = re.findall(r"(?:in|within|exactly|about|around)\s+(\d+)\s+(sentences?|words?|paragraphs?|points?)", instruction_lower)
-        for num_str, unit in length_constraints:
-            num_constraints_found += 1
-            target_len = int(num_str)
-            actual_len = 0
-            if unit.startswith("sentence"):
-                actual_len = len(re.findall(r"[^.!?]+[.!?]", generated_response))
-            elif unit.startswith("word"):
-                actual_len = len(generated_response.split())
-            elif unit.startswith("paragraph"):
-                actual_len = len(re.split(r"\n\s*\n", generated_response.strip()))
-            elif unit.startswith("point"): # e.g. bullet points
-                actual_len = len(re.findall(r"^\s*[\*\-\•\d\.]\s+", generated_response, re.MULTILINE))
-
-            if actual_len > 0: # Only penalize if we could measure
-                # Allow some tolerance, e.g., 20%
-                tolerance = 0.2 * target_len
-                if abs(actual_len - target_len) > max(2, tolerance): # max(2, tolerance) for small target_len
-                    score -= self.heuristic_violation_penalty / 2 # Lesser penalty for length
-                else:
-                    num_constraints_met +=1
-            else: # Could not determine length for the unit, or response was empty
-                score -= self.heuristic_violation_penalty / 4 # Small penalty if unit was specified but not measurable
-
-        if num_constraints_found == 0: # No specific constraints parsed by heuristics
-            return 0.1 # Small default positive if no constraints to check
-
-        if num_constraints_met == num_constraints_found and num_constraints_found > 0:
-            score = self.heuristic_partial_adherence_bonus * 2 # Max bonus for full adherence
-        elif num_constraints_met > 0:
-            score += self.heuristic_partial_adherence_bonus * (num_constraints_met / num_constraints_found)
+        diversity = unique_words / total_words
         
-        return max(-1.0, min(1.0, score))
-
-
-    def calculate_reward(self, prompt: str, generated_text: str, context: Dict[str, Any]) -> float:
-        if not generated_text.strip():
-            return -1.0 * self.weight # Penalize empty response if instruction was given
-
-        original_instruction = prompt 
+        # Bonus for varied sentence structures
+        sentences = re.split(r'[.!?]+', text)
+        sentence_lengths = [len(s.split()) for s in sentences if s.strip()]
         
-        score = 0.0
-        if self.judge_llm_client:
-            try:
-                judge_api_prompt = self.judge_prompt_template.format(
-                    original_instruction=original_instruction,
-                    generated_response=generated_text
-                )
-                llm_judge_kwargs = context.get('llm_judge_kwargs', {})
-                judge_response = self.judge_llm_client.generate(judge_api_prompt, **llm_judge_kwargs)
-                score = self._parse_judge_response(judge_response)
-            except Exception as e:
-                print(f"Error using LLM judge for InstructionFollowingComplexityReward: {e}")
-                score = self._heuristic_instruction_check(original_instruction, generated_text)
+        if len(sentence_lengths) > 1:
+            length_variance = np.var(sentence_lengths)
+            structure_bonus = min(0.2, length_variance / 100)  # Normalize
+            diversity += structure_bonus
+            
+        return min(1.0, diversity)
+        
+    def _calculate_originality(self, text: str, context: Dict[str, Any]) -> float:
+        """Calculate originality compared to reference corpus."""
+        reference_corpus = context.get(self.reference_corpus_key)
+        
+        if reference_corpus is None:
+            # Fallback to simple originality metrics
+            return self._heuristic_originality(text)
+            
+        # Calculate similarity to reference corpus
+        if hasattr(reference_corpus, 'similarity'):
+            similarity = reference_corpus.similarity(text)
+            return 1.0 - similarity
         else:
-            score = self._heuristic_instruction_check(original_instruction, generated_text)
-
-        return score * self.weight
-
-# Add to __all__ if you have one:
-# __all__ = [
-#     "FactualityReward", "CoherenceReward", "RelevanceReward", "HelpfulnessReward",
-#     "HarmlessnessReward", "ConcisionReward", "DiversityReward", "GroundingReward",
-#     "AlignmentReward", "SelfConsistencyReward", "ChainOfThoughtValidityReward",
-#     "InstructionFollowingComplexityReward", "ArgumentationQualityReward"
-# ]
+            return self._heuristic_originality(text)
+            
+    def _heuristic_originality(self, text: str) -> float:
+        """Calculate originality using heuristics."""
+        score = 0.5  # Start with neutral
+        
+        # Bonus for creative language use
+        creative_indicators = [
+            "metaphor", "analogy", "imagine", "creative", "innovative",
+            "unique", "original", "novel", "unprecedented"
+        ]
+        
+        text_lower = text.lower()
+        creative_count = sum(1 for word in creative_indicators 
+                           if word in text_lower)
+        score += min(0.3, creative_count * 0.1)
+        
+        # Bonus for unusual word combinations
+        words = text.lower().split()
+        if len(words) >= 2:
+            # Simple measure: count of rare bigrams
+            bigrams = [(words[i], words[i+1]) for i in range(len(words)-1)]
+            # This is simplified - in practice, you'd use a corpus to determine rarity
+            unusual_bigrams = len(set(bigrams))  # Placeholder
+            score += min(0.2, unusual_bigrams * 0.01)
+            
+        return min(1.0, max(0.0, score))
+        
+    def _text_similarity(self, text1: str, text2: str) -> float:
+        """Calculate similarity between two texts."""
+        words1 = set(text1.lower().split())
+        words2 = set(text2.lower().split())
+        
+        if not words1 or not words2:
+            return 0.0
+            
+        intersection = words1.intersection(words2)
+        union = words1.union(words2)
+        
+        return len(intersection) / len(union)

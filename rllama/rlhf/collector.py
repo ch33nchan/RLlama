@@ -1,3 +1,4 @@
+# File: /Users/cheencheen/Desktop/git/rl/RLlama/rllama/rlhf/collector.py
 # rllama/rlhf/collector.py
 
 import numpy as np

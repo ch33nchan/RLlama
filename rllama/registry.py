@@ -1,3 +1,4 @@
+# File: /Users/cheencheen/Desktop/git/rl/RLlama/rllama/registry.py
 # rllama/rewards/registry.py
 
 import inspect

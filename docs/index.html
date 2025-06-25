@@ -3,118 +3,676 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RLlama - Reward Engineering Framework</title>
+    <title>RLlama - Composable Reward Engineering Framework</title>
+    <meta name="description" content="A powerful composable reward engineering framework for reinforcement learning with 37+ components, neural models, RLHF support, and advanced optimization.">
+    
+    <!-- Fonts - Teenage Engineering uses clean, technical fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-python.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-yaml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-bash.min.js"></script>
 </head>
 <body>
-    <!-- Theme Toggle -->
-    <div class="theme-toggle" id="themeToggle">
-        <div class="theme-icon sun-icon">☀</div>
-        <div class="theme-icon moon-icon">☽</div>
+    <!-- Loading Screen with TE-style animation -->
+    <div class="loading-screen" id="loading-screen">
+        <div class="loading-container">
+            <div class="te-logo-animation">
+                <div class="te-grid">
+                    <div class="te-dot"></div>
+                    <div class="te-dot"></div>
+                    <div class="te-dot"></div>
+                    <div class="te-dot"></div>
+                    <div class="te-dot"></div>
+                    <div class="te-dot"></div>
+                    <div class="te-dot"></div>
+                    <div class="te-dot"></div>
+                    <div class="te-dot"></div>
+                </div>
+            </div>
+            <div class="loading-text">
+                <span class="mono-text">INITIALIZING RLLAMA</span>
+                <div class="loading-bar">
+                    <div class="loading-progress"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Sidebar Toggle Button -->
-    <button class="sidebar-toggle" id="sidebarToggle">
-        <span></span>
-        <span></span>
-        <span></span>
-    </button>
-
-    <!-- Sidebar -->
-    <nav class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="logo">RLlama</div>
+    <!-- Navigation with TE aesthetic -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <div class="brand-grid">
+                    <div class="brand-dot active"></div>
+                    <div class="brand-dot"></div>
+                    <div class="brand-dot"></div>
+                    <div class="brand-dot active"></div>
+                </div>
+                <span class="brand-text mono-text">RLLAMA</span>
+                <span class="version-badge mono-text">v0.7.0</span>
+            </div>
+            
+            <div class="nav-menu" id="nav-menu">
+                <a href="#home" class="nav-link mono-text">HOME</a>
+                <a href="#features" class="nav-link mono-text">FEATURES</a>
+                <a href="#components" class="nav-link mono-text">COMPONENTS</a>
+                <a href="#documentation" class="nav-link mono-text">DOCS</a>
+                <a href="#examples" class="nav-link mono-text">EXAMPLES</a>
+                <a href="#api" class="nav-link mono-text">API</a>
+            </div>
+            
+            <div class="nav-actions">
+                <a href="https://github.com/ch33nchan/RLlama" class="btn btn-outline mono-text" target="_blank">
+                    <i class="fab fa-github"></i>
+                    <span>GITHUB</span>
+                </a>
+                <a href="https://pypi.org/project/rllama/" class="btn btn-primary mono-text" target="_blank">
+                    <i class="fas fa-download"></i>
+                    <span>INSTALL</span>
+                </a>
+                <button class="nav-toggle" id="nav-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
         </div>
-        <ul class="sidebar-nav">
-            <li><a href="#" data-page="home" class="nav-link active">Home</a></li>
-            <li class="nav-section">Getting Started</li>
-            <li><a href="#" data-page="installation" class="nav-link">Installation</a></li>
-            <li><a href="#" data-page="quickstart" class="nav-link">Quick Start</a></li>
-            <li><a href="#" data-page="usage" class="nav-link">Usage</a></li>
-            <li class="nav-section">Core Concepts</li>
-            <li><a href="#" data-page="concepts" class="nav-link">Concepts</a></li>
-            <li><a href="#" data-page="component-design" class="nav-link">Component Design</a></li>
-            <li class="nav-section">Examples</li>
-            <li><a href="#" data-page="basic" class="nav-link">Basic Examples</a></li>
-            <li><a href="#" data-page="advanced" class="nav-link">Advanced Examples</a></li>
-            <li><a href="#" data-page="cookbook" class="nav-link">Cookbook</a></li>
-            <li><a href="#" data-page="reward_cookbook" class="nav-link">Environment Recipes</a></li>
-            <li class="nav-section">Integration</li>
-            <li><a href="#" data-page="integration" class="nav-link">Integration</a></li>
-            <li><a href="#" data-page="with-rllama" class="nav-link">With RLlama</a></li>
-            <li><a href="#" data-page="without-rllama" class="nav-link">Without RLlama</a></li>
-            <li class="nav-section">Reference</li>
-            <li><a href="#" data-page="optimization_guide" class="nav-link">Optimization Guide</a></li>
-            <li><a href="#" data-page="overview" class="nav-link">API Reference</a></li>
-            <li><a href="#" data-page="why-rllama" class="nav-link">Why RLlama</a></li>
-        </ul>
     </nav>
 
-    <!-- Main Content -->
-    <main class="main-content" id="mainContent">
-        <!-- Homepage -->
-        <div class="page active" id="home">
-            <div class="hero-section">
-                <div class="hero-content">
-                    <h1 class="hero-title">
-                        rewards are a <span class="crossed-out">black box</span>
-                    </h1>
-                    <h2 class="hero-subtitle">rllama is here to solve</h2>
-                    <p class="hero-description">
-                        A Python library for designing, composing, and tuning reward functions in RL. 
-                        Mix components, auto-search weights, and visualize term contributions.
-                    </p>
-                    <div class="hero-features">
-                        <div class="feature-grid">
-                            <div class="feature-item">
-                                <div class="feature-icon">🧩</div>
-                                <h3>Modular Components</h3>
-                                <p>Mix and match reward functions</p>
+    <!-- Hero Section with TE-style graphics -->
+    <section id="home" class="hero">
+        <div class="hero-background">
+            <div class="te-grid-bg"></div>
+            <canvas id="hero-canvas"></canvas>
+        </div>
+        
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <div class="badge-grid">
+                        <div class="badge-dot"></div>
+                        <div class="badge-dot active"></div>
+                        <div class="badge-dot"></div>
+                    </div>
+                    <span class="mono-text">PRODUCTION READY</span>
+                </div>
+                
+                <h1 class="hero-title">
+                    <span class="title-line mono-text">COMPOSABLE</span>
+                    <span class="title-line mono-text">REWARD</span>
+                    <span class="title-line mono-text gradient-text">ENGINEERING</span>
+                </h1>
+                
+                <div class="hero-subtitle mono-text">
+                    A modular framework for designing, implementing, and optimizing<br>
+                    reward functions in reinforcement learning systems.
+                </div>
+                
+                <div class="hero-stats">
+                    <div class="stat-grid">
+                        <div class="stat">
+                            <div class="stat-number mono-text" data-target="37">00</div>
+                            <div class="stat-label mono-text">COMPONENTS</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number mono-text" data-target="7">0</div>
+                            <div class="stat-label mono-text">CATEGORIES</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number mono-text" data-target="5">0</div>
+                            <div class="stat-label mono-text">MODELS</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number mono-text">∞</div>
+                            <div class="stat-label mono-text">POSSIBILITIES</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="hero-actions">
+                    <a href="#quick-start" class="btn btn-primary btn-large mono-text">
+                        <i class="fas fa-play"></i>
+                        <span>GET STARTED</span>
+                    </a>
+                    <a href="#documentation" class="btn btn-outline btn-large mono-text">
+                        <i class="fas fa-book"></i>
+                        <span>DOCUMENTATION</span>
+                    </a>
+                </div>
+            </div>
+            
+            <div class="hero-visual">
+                <div class="terminal-window">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <span class="dot red"></span>
+                            <span class="dot yellow"></span>
+                            <span class="dot green"></span>
+                        </div>
+                        <span class="terminal-title mono-text">rllama_demo.py</span>
+                    </div>
+                    <div class="terminal-content">
+                        <div class="code-animation" id="code-animation"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start with TE design -->
+    <section id="quick-start" class="quick-start">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number mono-text">01</div>
+                <h2 class="mono-text">QUICK START</h2>
+                <p class="mono-text">Get running in under 60 seconds</p>
+            </div>
+            
+            <div class="quick-start-grid">
+                <div class="step-card">
+                    <div class="step-header">
+                        <div class="step-number mono-text">01</div>
+                        <h3 class="mono-text">INSTALL</h3>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="mono-text">TERMINAL</span>
+                            <button class="copy-btn" data-copy="pip install rllama">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <code class="mono-text">pip install rllama</code>
+                    </div>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-header">
+                        <div class="step-number mono-text">02</div>
+                        <h3 class="mono-text">CONFIGURE</h3>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="mono-text">CONFIG.YAML</span>
+                            <button class="copy-btn" data-copy="reward_components:
+  - name: LengthReward
+    params:
+      target_length: 100
+  - name: DiversityReward
+    params:
+      history_size: 10">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <pre><code class="language-yaml mono-text">reward_components:
+  - name: LengthReward
+    params:
+      target_length: 100
+  - name: DiversityReward
+    params:
+      history_size: 10</code></pre>
+                    </div>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-header">
+                        <div class="step-number mono-text">03</div>
+                        <h3 class="mono-text">EXECUTE</h3>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="mono-text">PYTHON</span>
+                            <button class="copy-btn" data-copy="from rllama import RewardEngine
+
+engine = RewardEngine('config.yaml')
+reward = engine.compute({
+    'response': 'Hello, world!',
+    'query': 'Say hello'
+})">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <pre><code class="language-python mono-text">from rllama import RewardEngine
+
+engine = RewardEngine('config.yaml')
+reward = engine.compute({
+    'response': 'Hello, world!',
+    'query': 'Say hello'
+})</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features with TE aesthetic -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number mono-text">02</div>
+                <h2 class="mono-text">CORE FEATURES</h2>
+                <p class="mono-text">Everything you need for sophisticated reward engineering</p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card" data-feature="modular">
+                    <div class="feature-icon">
+                        <div class="icon-grid">
+                            <div class="icon-dot"></div>
+                            <div class="icon-dot active"></div>
+                            <div class="icon-dot"></div>
+                            <div class="icon-dot active"></div>
+                        </div>
+                    </div>
+                    <h3 class="mono-text">MODULAR DESIGN</h3>
+                    <p class="mono-text">37+ reward components across 7 categories. Mix and match to create the perfect reward function.</p>
+                    <div class="feature-metrics">
+                        <div class="metric">
+                            <span class="metric-number mono-text">37+</span>
+                            <span class="metric-label mono-text">COMPONENTS</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-number mono-text">7</span>
+                            <span class="metric-label mono-text">CATEGORIES</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="feature-card" data-feature="neural">
+                    <div class="feature-icon">
+                        <div class="neural-network">
+                            <div class="neural-layer">
+                                <div class="neuron"></div>
+                                <div class="neuron"></div>
+                                <div class="neuron"></div>
                             </div>
-                            <div class="feature-item">
-                                <div class="feature-icon">🎛️</div>
-                                <h3>Auto Optimization</h3>
-                                <p>Bayesian weight tuning</p>
+                            <div class="neural-layer">
+                                <div class="neuron"></div>
+                                <div class="neuron"></div>
                             </div>
-                            <div class="feature-item">
-                                <div class="feature-icon">📊</div>
-                                <h3>Visualization</h3>
-                                <p>Track reward contributions</p>
-                            </div>
-                            <div class="feature-item">
-                                <div class="feature-icon">🚀</div>
-                                <h3>RL Integration</h3>
-                                <p>Works with popular frameworks</p>
+                            <div class="neural-layer">
+                                <div class="neuron"></div>
                             </div>
                         </div>
                     </div>
-                    <div class="hero-buttons">
-                        <button class="btn btn-primary" onclick="showPage('installation')">GET STARTED</button>
-                        <button class="btn btn-secondary" onclick="showPage('concepts')">LEARN MORE</button>
+                    <h3 class="mono-text">NEURAL MODELS</h3>
+                    <p class="mono-text">Train sophisticated neural networks to learn reward functions from data with uncertainty quantification.</p>
+                    <div class="feature-metrics">
+                        <div class="metric">
+                            <span class="metric-number mono-text">3</span>
+                            <span class="metric-label mono-text">ARCHITECTURES</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-number mono-text">∞</span>
+                            <span class="metric-label mono-text">UNCERTAINTY</span>
+                        </div>
                     </div>
                 </div>
-                <div class="hero-animation">
-                    <canvas id="rewardCanvas"></canvas>
+                
+                <div class="feature-card" data-feature="rlhf">
+                    <div class="feature-icon">
+                        <div class="rlhf-diagram">
+                            <div class="human-feedback">
+                                <div class="feedback-dot"></div>
+                                <div class="feedback-arrow"></div>
+                            </div>
+                            <div class="model-update">
+                                <div class="update-pulse"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <h3 class="mono-text">RLHF SUPPORT</h3>
+                    <p class="mono-text">Complete Reinforcement Learning from Human Feedback pipeline with preference collection and active learning.</p>
+                    <div class="feature-metrics">
+                        <div class="metric">
+                            <span class="metric-number mono-text">100%</span>
+                            <span class="metric-label mono-text">COVERAGE</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-number mono-text">ACTIVE</span>
+                            <span class="metric-label mono-text">LEARNING</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="feature-card" data-feature="optimization">
+                    <div class="feature-icon">
+                        <div class="optimization-graph">
+                            <div class="graph-line"></div>
+                            <div class="graph-point"></div>
+                            <div class="graph-point optimal"></div>
+                        </div>
+                    </div>
+                    <h3 class="mono-text">BAYESIAN OPTIMIZATION</h3>
+                    <p class="mono-text">Automated hyperparameter tuning using state-of-the-art Bayesian optimization techniques.</p>
+                    <div class="feature-metrics">
+                        <div class="metric">
+                            <span class="metric-number mono-text">AUTO</span>
+                            <span class="metric-label mono-text">TUNING</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-number mono-text">MULTI</span>
+                            <span class="metric-label mono-text">OBJECTIVE</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+    </section>
 
-        <!-- Dynamic content will be inserted here -->
-        <div class="page" id="content-page">
-            <div class="content-wrapper">
-                <div id="page-content"></div>
+    <!-- Component Matrix with TE grid design -->
+    <section id="components" class="components">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number mono-text">03</div>
+                <h2 class="mono-text">COMPONENT MATRIX</h2>
+                <p class="mono-text">Comprehensive library of reward components</p>
+            </div>
+            
+            <div class="component-matrix">
+                <div class="matrix-controls">
+                    <button class="matrix-btn active mono-text" data-category="all">ALL</button>
+                    <button class="matrix-btn mono-text" data-category="basic">BASIC</button>
+                    <button class="matrix-btn mono-text" data-category="llm">LLM</button>
+                    <button class="matrix-btn mono-text" data-category="learning">LEARNING</button>
+                    <button class="matrix-btn mono-text" data-category="robotics">ROBOTICS</button>
+                    <button class="matrix-btn mono-text" data-category="advanced">ADVANCED</button>
+                </div>
+                
+                <div class="matrix-grid" id="component-matrix">
+                    <!-- Components will be dynamically populated -->
+                </div>
             </div>
         </div>
-    </main>
+    </section>
 
+    <!-- Documentation Section -->
+    <section id="documentation" class="documentation">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number mono-text">04</div>
+                <h2 class="mono-text">DOCUMENTATION</h2>
+                <p class="mono-text">Comprehensive guides and references</p>
+            </div>
+            
+            <div class="docs-grid">
+                <div class="doc-section">
+                    <div class="doc-header">
+                        <h3 class="mono-text">GETTING STARTED</h3>
+                        <div class="doc-status complete mono-text">COMPLETE</div>
+                    </div>
+                    <div class="doc-content">
+                        <div class="doc-item">
+                            <a href="#installation" class="doc-link mono-text">
+                                <span>Installation Guide</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                        <div class="doc-item">
+                            <a href="#quick-start" class="doc-link mono-text">
+                                <span>Quick Start Tutorial</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                        <div class="doc-item">
+                            <a href="#basic-concepts" class="doc-link mono-text">
+                                <span>Basic Concepts</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="doc-section">
+                    <div class="doc-header">
+                        <h3 class="mono-text">API REFERENCE</h3>
+                        <div class="doc-status complete mono-text">COMPLETE</div>
+                    </div>
+                    <div class="doc-content">
+                        <div class="doc-item">
+                            <a href="#api-core" class="doc-link mono-text">
+                                <span>Core Classes</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                        <div class="doc-item">
+                            <a href="#api-components" class="doc-link mono-text">
+                                <span>Reward Components</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                        <div class="doc-item">
+                            <a href="#api-models" class="doc-link mono-text">
+                                <span>Neural Models</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="doc-section">
+                    <div class="doc-header">
+                        <h3 class="mono-text">COOKBOOKS</h3>
+                        <div class="doc-status complete mono-text">COMPLETE</div>
+                    </div>
+                    <div class="doc-content">
+                        <div class="doc-item">
+                            <a href="#cookbook-gym" class="doc-link mono-text">
+                                <span>Gym + Stable Baselines3</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                        <div class="doc-item">
+                            <a href="#cookbook-rlhf" class="doc-link mono-text">
+                                <span>Advanced RLHF Training</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                        <div class="doc-item">
+                            <a href="#cookbook-neural" class="doc-link mono-text">
+                                <span>Deep Reward Models</span>
+                                <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Examples Section -->
+    <section id="examples" class="examples">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number mono-text">05</div>
+                <h2 class="mono-text">CODE EXAMPLES</h2>
+                <p class="mono-text">Real-world implementations</p>
+            </div>
+            
+            <div class="examples-tabs">
+                <button class="tab-btn active mono-text" data-tab="basic">BASIC USAGE</button>
+                <button class="tab-btn mono-text" data-tab="advanced">ADVANCED</button>
+                <button class="tab-btn mono-text" data-tab="rlhf">RLHF</button>
+                <button class="tab-btn mono-text" data-tab="optimization">OPTIMIZATION</button>
+            </div>
+            
+            <div class="examples-content">
+                <div class="example-pane active" id="basic">
+                    <div class="example-header">
+                        <h3 class="mono-text">BASIC REWARD COMPOSITION</h3>
+                        <div class="example-tags">
+                            <span class="tag mono-text">BEGINNER</span>
+                            <span class="tag mono-text">CORE</span>
+                        </div>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="mono-text">BASIC_EXAMPLE.PY</span>
+                            <button class="copy-btn">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <pre><code class="language-python mono-text">from rllama import RewardEngine
+
+# Initialize with configuration
+engine = RewardEngine("config.yaml", verbose=True)
+
+# Compute reward
+context = {
+    "response": "This demonstrates RLlama's capabilities.",
+    "query": "Tell me about RLlama",
+    "metadata": {"model": "gpt-4", "temperature": 0.7}
+}
+
+reward = engine.compute_and_log(context)
+print(f"Final reward: {reward:.4f}")
+
+# Get component breakdown
+component_rewards = engine.composer.calculate(context)
+for component, value in component_rewards.items():
+    print(f"{component}: {value:.4f}")</code></pre>
+                    </div>
+                </div>
+                
+                <!-- Additional example panes would go here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- API Reference Section -->
+    <section id="api" class="api-reference">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-number mono-text">06</div>
+                <h2 class="mono-text">API REFERENCE</h2>
+                <p class="mono-text">Complete API documentation</p>
+            </div>
+            
+            <div class="api-grid">
+                <div class="api-sidebar">
+                    <div class="api-nav">
+                        <div class="api-section">
+                            <h4 class="mono-text">CORE</h4>
+                            <ul>
+                                <li><a href="#api-engine" class="mono-text">RewardEngine</a></li>
+                                <li><a href="#api-composer" class="mono-text">RewardComposer</a></li>
+                                <li><a href="#api-shaper" class="mono-text">RewardShaper</a></li>
+                            </ul>
+                        </div>
+                        <div class="api-section">
+                            <h4 class="mono-text">COMPONENTS</h4>
+                            <ul>
+                                <li><a href="#api-base" class="mono-text">BaseReward</a></li>
+                                <li><a href="#api-length" class="mono-text">LengthReward</a></li>
+                                <li><a href="#api-diversity" class="mono-text">DiversityReward</a></li>
+                            </ul>
+                        </div>
+                        <div class="api-section">
+                            <h4 class="mono-text">MODELS</h4>
+                            <ul>
+                                <li><a href="#api-mlp" class="mono-text">MLPRewardModel</a></li>
+                                <li><a href="#api-ensemble" class="mono-text">EnsembleRewardModel</a></li>
+                                <li><a href="#api-trainer" class="mono-text">RewardModelTrainer</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="api-content">
+                    <div class="api-item" id="api-engine">
+                        <div class="api-header">
+                            <h3 class="mono-text">RewardEngine</h3>
+                            <div class="api-badge mono-text">CLASS</div>
+                        </div>
+                        <div class="api-description">
+                            <p class="mono-text">Main engine for computing composite rewards based on configuration.</p>
+                        </div>
+                        <div class="api-methods">
+                            <div class="method">
+                                <div class="method-signature mono-text">
+                                    __init__(config_path: str, verbose: bool = False)
+                                </div>
+                                <div class="method-description mono-text">
+                                    Initialize the reward engine with a configuration file.
+                                </div>
+                            </div>
+                            <div class="method">
+                                <div class="method-signature mono-text">
+                                    compute(context: Dict[str, Any]) → float
+                                </div>
+                                <div class="method-description mono-text">
+                                    Compute reward for given context without logging.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional API items would be populated here -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer with TE styling -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="brand-grid">
+                        <div class="brand-dot active"></div>
+                        <div class="brand-dot"></div>
+                        <div class="brand-dot"></div>
+                        <div class="brand-dot active"></div>
+                    </div>
+                    <span class="brand-text mono-text">RLLAMA</span>
+                </div>
+                
+                <div class="footer-links">
+                    <div class="link-section">
+                        <h4 class="mono-text">FRAMEWORK</h4>
+                        <ul>
+                            <li><a href="#documentation" class="mono-text">DOCUMENTATION</a></li>
+                            <li><a href="#examples" class="mono-text">EXAMPLES</a></li>
+                            <li><a href="#api" class="mono-text">API REFERENCE</a></li>
+                        </ul>
+                    </div>
+                    <div class="link-section">
+                        <h4 class="mono-text">COMMUNITY</h4>
+                        <ul>
+                            <li><a href="https://github.com/ch33nchan/RLlama" class="mono-text" target="_blank">GITHUB</a></li>
+                            <li><a href="https://pypi.org/project/rllama/" class="mono-text" target="_blank">PYPI</a></li>
+                            <li><a href="#" class="mono-text">DISCORD</a></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="footer-info">
+                    <div class="footer-stats">
+                        <div class="stat">
+                            <span class="stat-value mono-text">37+</span>
+                            <span class="stat-label mono-text">COMPONENTS</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value mono-text">v0.7.0</span>
+                            <span class="stat-label mono-text">VERSION</span>
+                        </div>
+                    </div>
+                    <div class="footer-copyright mono-text">
+                        © 2025 RLLAMA. MIT LICENSE.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
