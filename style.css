@@ -1,0 +1,20 @@
+
+/* Emergency CSS fixes for loading screen */
+body.loaded .loading-screen {
+    display: none !important;
+}
+
+.loading-screen.fade-out {
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+/* Ensure content is visible after loading */
+body.loaded {
+    visibility: visible !important;
+}
+
+body.loaded .navbar,
+body.loaded section:not(.loading-screen) {
+    display: block !important;
+}
